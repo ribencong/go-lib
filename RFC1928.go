@@ -47,7 +47,7 @@ Note:
 */
 
 import (
-	"github.com/W-B-S/go-YouPipe-lib/pbs"
+	"github.com/youpipe/go-youPipe/pbs"
 	"io"
 	"net"
 	"strconv"
