@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/gogo/protobuf/proto"
+	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/pbs"
+	"github.com/youpipe/go-youPipe/service"
 	"io"
-	"log"
 	"net"
 	"time"
 )
+
+var NoEncrypt = true
 
 type Node struct {
 	ctx         context.Context
@@ -16,13 +20,15 @@ type Node struct {
 	isOnline    bool
 	localServe  net.Listener
 	accessPoint string
+	account     *account.Account
+	proxyID     string
 }
 
 func NewNode(lAddr, rAddr string) *Node {
 	l, err := net.Listen("tcp", lAddr)
 	if err != nil {
-		logger.Printf("failed to listen on:%s : %v", lAddr, err)
-		return nil
+		fmt.Printf("failed to listen on:%s : %v", lAddr, err)
+		panic(err)
 	}
 
 	ctx, s := context.WithCancel(context.Background())
@@ -34,7 +40,7 @@ func NewNode(lAddr, rAddr string) *Node {
 		accessPoint: rAddr,
 	}
 
-	logger.Printf("new node setup and listen success at:%s", lAddr)
+	logger.Printf("listening at:%s", lAddr)
 
 	return node
 }
@@ -56,8 +62,8 @@ func (node *Node) Serving() {
 		default:
 			conn, err := node.localServe.Accept()
 			if err != nil {
-				logger.Printf("failed to accept :%s", err)
-				continue
+				fmt.Printf("failed to accept :%s", err)
+				panic(err)
 			}
 
 			go node.handleConn(conn)
@@ -77,9 +83,9 @@ func (node *Node) handleConn(conn net.Conn) {
 		logger.Print("sock5 handshake err:->", err)
 		return
 	}
-	logger.Print("target info:->", obj.address)
+	logger.Print("target info:->", obj.target)
 
-	apConn, err := node.handShake(obj, conn)
+	apConn, err := node.findProxy(obj, conn)
 	if err != nil {
 		return
 	}
@@ -94,36 +100,49 @@ func (node *Node) handleConn(conn net.Conn) {
 	}
 }
 
-func (node *Node) handShake(obj *rfcObj, conn net.Conn) (net.Conn, error) {
+func (node *Node) findProxy(obj *rfcObj, conn net.Conn) (net.Conn, error) {
 	apConn, err := net.Dial("tcp", node.accessPoint)
 	if err != nil {
-		log.Print("failed to connect to remote access point server :->", node.accessPoint, err)
+		fmt.Printf("failed to connect to (%s) access point server (%s):->", node.accessPoint, err)
 		return nil, err
 	}
 	apConn.(*net.TCPConn).SetKeepAlive(true)
 
-	tarAddr, _ := proto.Marshal(obj.address)
-	if _, err := apConn.Write(tarAddr); err != nil {
-		logger.Printf("failed to send target TargetAddr:->%v, %v", tarAddr, err)
+	req := &pbs.Sock5Req{
+		Address: string(node.account.Address),
+		Target:  obj.target,
+		IsRaw:   NoEncrypt,
+	}
+	data, _ := proto.Marshal(req)
+	if _, err := apConn.Write(data); err != nil {
+		logger.Printf("failed to send target(%s) ", obj.target)
 		return nil, err
 	}
-
-	log.Printf("proxy %s <-> %s <-> %s", conn.RemoteAddr(), node.accessPoint, obj.address)
 
 	buffer := make([]byte, 1024)
 	n, err := apConn.Read(buffer)
 	if err != nil {
-		log.Printf("failed to read ap response :->%v", err)
+		fmt.Printf("failed to read ap response :->%v", err)
 		return nil, err
 	}
-	ack := &pbs.CommAck{}
+
+	ack := &pbs.Sock5Res{}
 	if err = proto.Unmarshal(buffer[:n], ack); err != nil {
-		log.Printf("unmarshal response :->%v", err)
+		fmt.Printf("unmarshal response :->%v", err)
 		return nil, err
 	}
-	if ack.ErrNo != pbs.ErrorNo_Success {
-		log.Printf("handshake with remote error:->%v", ack.ErrMsg)
-		return nil, err
+
+	if ack.Address != node.proxyID {
+		return nil, fmt.Errorf("input address(%s) and proxy id(%s) are not same", ack.Address, node.proxyID)
+	}
+
+	if req.IsRaw == false {
+		var aesKey [32]byte
+		if err := node.account.CreateAesKey(&aesKey, ack.Address); err != nil {
+			fmt.Printf("create aes key for address(%s) err(%v)", ack.Address, err)
+			return nil, err
+		}
+		apConn, err = service.Shadow(apConn, aesKey)
 	}
 
 	return apConn, nil

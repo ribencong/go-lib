@@ -2,7 +2,6 @@ package main
 
 import "C"
 import (
-	"fmt"
 	"log"
 	"os"
 )
@@ -20,10 +19,8 @@ func startService(ls, rs string) bool {
 	if currentService != nil && currentService.IsRunning() {
 		stopService()
 	}
-	lServe := fmt.Sprintf("%s", ls)
-	rServer := fmt.Sprintf("%s", rs)
-	logger.Printf("start service:%s<->%s", lServe, rServer)
-	if currentService = NewNode(lServe, rServer); currentService == nil {
+	logger.Printf("start service:%s<->%s", ls, rs)
+	if currentService = NewNode(ls, rs); currentService == nil {
 		return false
 	}
 
