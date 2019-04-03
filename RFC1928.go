@@ -47,7 +47,6 @@ Note:
 */
 
 import (
-	"github.com/youpipe/go-youPipe/pbs"
 	"io"
 	"net"
 	"strconv"
@@ -213,12 +212,7 @@ func (obj *rfcObj) request() (err error) {
 	port := strconv.Itoa((int(obj.buffer[addLen]) << 8) |
 		int(obj.buffer[addLen+1]))
 
-	obj.address = &pbs.Sock5Addr{
-		AType: int32(aType),
-		Host:  host,
-		Port:  port,
-	}
-
+	obj.target = net.JoinHostPort(host, port)
 	return
 }
 
@@ -437,9 +431,9 @@ func (obj *rfcObj) replies(addr string) (err error) {
    does not support fragmentation MUST drop any datagram whose FRAG
    field is other than X’00’.
 */
-func udpMethod(rw io.ReadWriter) (err error) {
-	return nil
-}
+//func udpMethod(rw io.ReadWriter) (err error) {
+//	return nil
+//}
 
 /*
 8.  Security Considerations
@@ -465,10 +459,10 @@ Author’s Address
 const MaxAddrLen = 1 + 1 + 255 + 2
 
 type rfcObj struct {
-	cmd     byte
-	address *pbs.Sock5Addr
-	buffer  []byte
-	conn    io.ReadWriter
+	cmd    byte
+	target string
+	buffer []byte
+	conn   io.ReadWriter
 }
 
 func HandShake(conn net.Conn) (*rfcObj, error) {
