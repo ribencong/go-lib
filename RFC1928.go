@@ -1,5 +1,11 @@
 package main
 
+import (
+	"io"
+	"net"
+	"strconv"
+)
+
 /*
 1.  Introduction
    The use of network firewalls, systems that effectively isolate an
@@ -45,12 +51,6 @@ Note:
    associated (one or two octet) length field, or by a data type field.
 
 */
-
-import (
-	"io"
-	"net"
-	"strconv"
-)
 
 /*
 3.  Procedure for TCP-based clients

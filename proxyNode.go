@@ -40,7 +40,7 @@ func NewNode(lAddr, rAddr string) *Node {
 		accessPoint: rAddr,
 	}
 
-	logger.Printf("listening at:%s", lAddr)
+	fmt.Printf("listening at:%s\n", lAddr)
 
 	return node
 }
@@ -51,13 +51,13 @@ func (node *Node) Serving() {
 
 	defer func() {
 		node.isOnline = false
-		logger.Print("node service go routine exit")
+		fmt.Println("node service go routine exit")
 	}()
 
 	for {
 		select {
 		case <-node.ctx.Done():
-			logger.Print("node service stop.....")
+			fmt.Println("node service stop.....")
 			return
 		default:
 			conn, err := node.localServe.Accept()
@@ -76,14 +76,14 @@ func (node *Node) handleConn(conn net.Conn) {
 
 	conn.(*net.TCPConn).SetKeepAlive(true)
 
-	logger.Print("a new connection :->", conn.RemoteAddr().String())
+	fmt.Println("a new connection :->", conn.RemoteAddr().String())
 
 	obj, err := HandShake(conn)
 	if err != nil {
-		logger.Print("sock5 handshake err:->", err)
+		fmt.Println("sock5 handshake err:->", err)
 		return
 	}
-	logger.Print("target info:->", obj.target)
+	fmt.Println("target info:->", obj.target)
 
 	apConn, err := node.findProxy(obj, conn)
 	if err != nil {
@@ -96,7 +96,7 @@ func (node *Node) handleConn(conn net.Conn) {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
 			return // ignore i/o timeout
 		}
-		logger.Printf("relay error: %v", err)
+		fmt.Printf("relay error: %v\n", err)
 	}
 }
 
@@ -115,7 +115,7 @@ func (node *Node) findProxy(obj *rfcObj, conn net.Conn) (net.Conn, error) {
 	}
 	data, _ := proto.Marshal(req)
 	if _, err := apConn.Write(data); err != nil {
-		logger.Printf("failed to send target(%s) ", obj.target)
+		fmt.Printf("failed to send target(%s) \n", obj.target)
 		return nil, err
 	}
 
