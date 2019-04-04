@@ -12,8 +12,6 @@ import (
 	"time"
 )
 
-var NoEncrypt = true
-
 type Node struct {
 	ctx         context.Context
 	stop        context.CancelFunc
@@ -112,7 +110,7 @@ func (node *Node) findProxy(obj *rfcObj, conn net.Conn) (net.Conn, error) {
 	req := &pbs.Sock5Req{
 		Address: string(node.account.Address),
 		Target:  obj.target,
-		IsRaw:   NoEncrypt,
+		IsRaw:   false,
 	}
 	data, _ := proto.Marshal(req)
 	if _, err := apConn.Write(data); err != nil {

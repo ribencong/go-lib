@@ -56,11 +56,13 @@ func createAccount(password string) (string, string) {
 
 //export initAccount
 func initAccount(cipherTxt, address, password string) bool {
-	if len(address) != account.AccIDLen {
+	id, err := account.ConvertToID(address)
+	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	acc := &account.Account{
-		Address: account.ID(address),
+		Address: id,
 		Key: &account.Key{
 			LockedKey: base58.Decode(cipherTxt),
 		},
