@@ -12,19 +12,19 @@ func main() {
 	test4()
 }
 func test4() {
-	b := initAccount(os.Args[5], os.Args[4], os.Args[3])
+	b := initAccount(os.Args[6], os.Args[5], os.Args[4])
 	fmt.Printf("unlock:%t\n", b)
 	if !b {
 		panic("unlock failed")
 	}
-	b = startService(os.Args[1], os.Args[2])
+	b = startService(os.Args[1], os.Args[2], os.Args[3])
 	if !b {
 		panic("service failed")
 	}
 	<-make(chan struct{})
 }
 func test1() {
-	b := startService(os.Args[1], os.Args[2])
+	b := startService(os.Args[1], os.Args[2], os.Args[3])
 	if !b {
 		panic("failed")
 	}
@@ -74,7 +74,7 @@ func initAccount(cipherTxt, address, password string) bool {
 }
 
 //export startService
-func startService(ls, rs string) bool {
+func startService(ls, rs, pid string) bool {
 	if nil == unlockedAcc {
 		fmt.Println("please unlock this node first")
 		return false
@@ -88,6 +88,7 @@ func startService(ls, rs string) bool {
 		return false
 	}
 	currentService.account = unlockedAcc
+	currentService.proxyID = pid
 
 	go currentService.Serving()
 	return true

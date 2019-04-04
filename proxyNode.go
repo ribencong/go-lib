@@ -87,6 +87,7 @@ func (node *Node) handleConn(conn net.Conn) {
 
 	apConn, err := node.findProxy(obj, conn)
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	defer apConn.Close()
