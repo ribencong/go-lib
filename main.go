@@ -45,6 +45,7 @@ var unlockedAcc *account.Account = nil
 
 //export createAccount
 func createAccount(password string) (string, string) {
+
 	key, err := account.GenerateKey(password)
 	if err != nil {
 		return "", ""
