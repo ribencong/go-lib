@@ -1,5 +1,6 @@
 package main
 
+import "C"
 import (
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
@@ -10,15 +11,18 @@ var currentService *Node = nil
 var unlockedAcc *account.Account = nil
 
 //export createAccount
-func createAccount(password string) (string, string) {
+func createAccount(password string) (*C.char, string) {
 
 	key, err := account.GenerateKey(password)
 	if err != nil {
-		return "", ""
+		return C.CString(""), ""
 	}
 	address := key.ToNodeId()
 	cipherTxt := base58.Encode(key.LockedKey)
-	return string(address), cipherTxt
+	fmt.Println(string(address))
+	fmt.Println(cipherTxt)
+
+	return C.CString(address.ToString()), cipherTxt
 }
 
 //export initAccount
