@@ -11,18 +11,18 @@ var currentService *Node = nil
 var unlockedAcc *account.Account = nil
 
 //export createAccount
-func createAccount(password string) (*C.char, string) {
+func createAccount(password string) (*C.char, *C.char) {
 
 	key, err := account.GenerateKey(password)
 	if err != nil {
-		return C.CString(""), ""
+		return C.CString(""), C.CString("")
 	}
 	address := key.ToNodeId()
 	cipherTxt := base58.Encode(key.LockedKey)
 	fmt.Println(string(address))
 	fmt.Println(cipherTxt)
 
-	return C.CString(address.ToString()), cipherTxt
+	return C.CString(address.ToString()), C.CString(cipherTxt)
 }
 
 //export initAccount
