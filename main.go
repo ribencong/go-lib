@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	test4()
+	test3()
 }
 func test4() {
 	b := initAccount(os.Args[6], os.Args[5], os.Args[4])

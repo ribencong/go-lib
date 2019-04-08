@@ -27,6 +27,9 @@ func createAccount(password string) (*C.char, *C.char) {
 
 //export initAccount
 func initAccount(cipherTxt, address, password string) bool {
+	fmt.Println(cipherTxt)
+	fmt.Println(address)
+	fmt.Println(password)
 	id, err := account.ConvertToID(address)
 	if err != nil {
 		fmt.Println(err)
@@ -41,6 +44,8 @@ func initAccount(cipherTxt, address, password string) bool {
 
 	if ok := acc.UnlockAcc(password); ok {
 		unlockedAcc = acc
+		fmt.Println("Unlock account success")
+		fmt.Println(acc)
 		return true
 	}
 	return false
