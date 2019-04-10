@@ -92,6 +92,7 @@ func stopService() bool {
 
 //export verifyLicense
 func verifyLicense(license string) bool {
+	fmt.Println(license)
 	l := &pbs.License{}
 	if err := json.Unmarshal([]byte(license), l); err != nil {
 		fmt.Println(err)
