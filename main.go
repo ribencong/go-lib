@@ -7,8 +7,13 @@ import (
 )
 
 func main() {
-	test3()
+	test5()
 }
+
+func test5() {
+	println("verifyLicense:->", verifyLicense(`{"sig":"fgmReXNZGEuRlwzvkBHXbjV+pwVdpe75KLCLVvFdkknA5k7FfWLTFk50q1FriX2lbt1pTHFtz7+OmwOukciyCQ==","data":{"StartTime":"2019-04-10 19:26:13","EndTime":"2019-04-14 19:26:13","UserAddr":"YP7Bdx1LixC9yBnnmoJky4E4QsKxjCdhjvKfF64JxjRJfR"}}`))
+}
+
 func test4() {
 	b := initAccount(os.Args[6], os.Args[5], os.Args[4])
 	fmt.Printf("unlock:%t\n", b)

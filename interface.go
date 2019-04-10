@@ -2,13 +2,18 @@ package main
 
 import "C"
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
+	"golang.org/x/crypto/ed25519"
 )
 
 var currentService *Node = nil
 var unlockedAcc *account.Account = nil
+
+const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
 
 //export createAccount
 func createAccount(password string) (*C.char, *C.char) {
@@ -83,4 +88,21 @@ func stopService() bool {
 	currentService = nil
 	defer fmt.Print("stop service success.....\n")
 	return true
+}
+
+//export verifyLicense
+func verifyLicense(license string) bool {
+	l := &pbs.License{}
+	if err := json.Unmarshal([]byte(license), l); err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	msg, err := json.Marshal(l.Data)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Sig)
 }
