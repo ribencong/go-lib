@@ -27,6 +27,10 @@ func createAccount(password string) (*C.char, *C.char) {
 
 //export initAccount
 func initAccount(cipherTxt, address, password string) bool {
+	if unlockedAcc != nil && address == unlockedAcc.Address.ToString() {
+		return true
+	}
+
 	id, err := account.ConvertToID(address)
 	if err != nil {
 		fmt.Println(err)
@@ -71,13 +75,12 @@ func startService(ls, rs, pid string) bool {
 
 //export stopService
 func stopService() bool {
-
 	if currentService == nil {
 		return true
 	}
 
-	defer fmt.Print("stop service success.....\n")
 	currentService.Stop()
 	currentService = nil
+	defer fmt.Print("stop service success.....\n")
 	return true
 }

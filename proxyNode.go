@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"github.com/gogo/protobuf/proto"
 	"github.com/youpipe/go-youPipe/account"
@@ -13,8 +12,6 @@ import (
 )
 
 type Node struct {
-	ctx         context.Context
-	stop        context.CancelFunc
 	isOnline    bool
 	localServe  net.Listener
 	accessPoint string
@@ -26,19 +23,15 @@ func NewNode(lAddr, rAddr string) *Node {
 	l, err := net.Listen("tcp", lAddr)
 	if err != nil {
 		fmt.Printf("failed to listen on:%s : %v", lAddr, err)
-		panic(err)
+		return nil
 	}
 
-	ctx, s := context.WithCancel(context.Background())
-
 	node := &Node{
-		ctx:         ctx,
-		stop:        s,
 		localServe:  l,
 		accessPoint: rAddr,
 	}
 
-	fmt.Printf("listening at:%s\n", lAddr)
+	fmt.Printf("\n------>>>listening at:%s\n", lAddr)
 
 	return node
 }
@@ -53,19 +46,13 @@ func (node *Node) Serving() {
 	}()
 
 	for {
-		select {
-		case <-node.ctx.Done():
-			fmt.Println("node service stop.....")
+		conn, err := node.localServe.Accept()
+		if err != nil {
+			fmt.Printf("finish to accept :%s", err)
 			return
-		default:
-			conn, err := node.localServe.Accept()
-			if err != nil {
-				fmt.Printf("failed to accept :%s", err)
-				panic(err)
-			}
-
-			go node.handleConn(conn)
 		}
+
+		go node.handleConn(conn)
 	}
 }
 
@@ -178,5 +165,4 @@ func (node *Node) IsRunning() bool {
 
 func (node *Node) Stop() {
 	node.localServe.Close()
-	node.stop()
 }
