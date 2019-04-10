@@ -27,9 +27,6 @@ func createAccount(password string) (*C.char, *C.char) {
 
 //export initAccount
 func initAccount(cipherTxt, address, password string) bool {
-	fmt.Println(cipherTxt)
-	fmt.Println(address)
-	fmt.Println(password)
 	id, err := account.ConvertToID(address)
 	if err != nil {
 		fmt.Println(err)
