@@ -118,3 +118,8 @@ func LibVerifyLicense(license string) bool {
 
 	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Sig)
 }
+
+//export LibIsAccountInit
+func LibIsAccountInit() bool {
+	return currentService != nil
+}
