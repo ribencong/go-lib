@@ -15,8 +15,8 @@ var unlockedAcc *account.Account = nil
 
 const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
 
-//export createAccount
-func createAccount(password string) (*C.char, *C.char) {
+//export LibCreateAccount
+func LibCreateAccount(password string) (*C.char, *C.char) {
 
 	key, err := account.GenerateKey(password)
 	if err != nil {
@@ -30,8 +30,8 @@ func createAccount(password string) (*C.char, *C.char) {
 	return C.CString(address.ToString()), C.CString(cipherTxt)
 }
 
-//export initAccount
-func initAccount(cipherTxt, address, password string) bool {
+//export LibInitAccount
+func LibInitAccount(cipherTxt, address, password string) bool {
 	if unlockedAcc != nil && address == unlockedAcc.Address.ToString() {
 		return true
 	}
@@ -57,15 +57,15 @@ func initAccount(cipherTxt, address, password string) bool {
 	return false
 }
 
-//export startService
-func startService(ls, rs, pid string) bool {
+//export LibStartService
+func LibStartService(ls, rs, pid string) bool {
 	if nil == unlockedAcc {
 		fmt.Println("please unlock this node first")
 		return false
 	}
 
 	if currentService != nil && currentService.IsRunning() {
-		stopService()
+		LibStopService()
 	}
 	fmt.Printf("start service:%s<->%s\n", ls, rs)
 	if currentService = NewNode(ls, rs); currentService == nil {
@@ -78,8 +78,8 @@ func startService(ls, rs, pid string) bool {
 	return true
 }
 
-//export stopService
-func stopService() bool {
+//export LibStopService
+func LibStopService() bool {
 	if currentService == nil {
 		return true
 	}
@@ -90,8 +90,8 @@ func stopService() bool {
 	return true
 }
 
-//export verifyLicense
-func verifyLicense(license string) bool {
+//export LibVerifyLicense
+func LibVerifyLicense(license string) bool {
 	fmt.Println(license)
 	l := &pbs.License{}
 	if err := json.Unmarshal([]byte(license), l); err != nil {
