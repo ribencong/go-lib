@@ -7,6 +7,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
+	"github.com/youpipe/go-youPipe/network"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -58,21 +59,31 @@ func LibInitAccount(cipherTxt, address, password string) bool {
 }
 
 //export LibStartService
-func LibStartService(ls, rs, pid string) bool {
+func LibStartService(ls, rip, proxyID string) bool {
 	if nil == unlockedAcc {
 		fmt.Println("please unlock this node first")
+		return false
+	}
+
+	pid, err := account.ConvertToID(proxyID)
+	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 
 	if currentService != nil && currentService.IsRunning() {
 		LibStopService()
 	}
-	fmt.Printf("start service:%s<->%s\n", ls, rs)
+
+	port := pid.ToSocketPort()
+	rs := network.JoinHostPort(rip, port)
+	fmt.Printf("start service:%s<->%s peerId(%s)\n", ls, rs, pid)
+
 	if currentService = NewNode(ls, rs); currentService == nil {
 		return false
 	}
 	currentService.account = unlockedAcc
-	currentService.proxyID = pid
+	currentService.proxyID = proxyID
 
 	go currentService.Serving()
 	return true
