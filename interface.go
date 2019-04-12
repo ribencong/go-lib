@@ -61,6 +61,7 @@ func LibInitAccount(cipherTxt, address, password string) bool {
 
 //export LibStartService
 func LibStartService(ls, rip, proxyID, license string) bool {
+	fmt.Println(ls, rip, proxyID, license)
 	if nil == unlockedAcc {
 		fmt.Println("please unlock this node first")
 		return false
@@ -137,7 +138,7 @@ func verifyLicenseData(l *pbs.License) bool {
 }
 
 //export LibVerifyNetwork
-func LibVerifyNetwork(ip, id string) bool {
+func LibVerifyNetwork(ip, id string) int {
 	fmt.Println(ip, id)
 	trial := net.ParseIP(ip)
 	if trial.To4() == nil {
@@ -145,14 +146,14 @@ func LibVerifyNetwork(ip, id string) bool {
 
 		if trial.To16() == nil {
 			fmt.Printf("%v is not a valid IP address\n", trial)
-			return false
+			return -1
 		}
 	}
 
 	if !account.ID(id).IsValid() {
 		fmt.Println("not a valid id:->", id)
-		return false
+		return -2
 	}
 
-	return true
+	return 0
 }

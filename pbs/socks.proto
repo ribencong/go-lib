@@ -2,10 +2,6 @@ syntax = "proto3";
 
 package pbs;
 
-enum errorNo{
-    Success = 0;
-}
-
 message Sock5Req{
 //    string ver      = 1;
     string address  = 2;
