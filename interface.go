@@ -9,6 +9,7 @@ import (
 	"github.com/youpipe/go-youPipe/network"
 	"github.com/youpipe/go-youPipe/pbs"
 	"golang.org/x/crypto/ed25519"
+	"net"
 )
 
 var currentService *Node = nil
@@ -135,7 +136,21 @@ func verifyLicenseData(l *pbs.License) bool {
 	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Sig)
 }
 
-//export LibIsAccountInit
-func LibIsAccountInit() bool {
-	return unlockedAcc != nil
+//export LibVerifyNetwork
+func LibVerifyNetwork(ip, id string) bool {
+	trial := net.ParseIP(ip)
+	if trial.To4() == nil {
+		fmt.Printf("%v is not a valid IPv4 address\n", trial)
+
+		if trial.To16() == nil {
+			fmt.Printf("%v is not a valid IP address\n", trial)
+			return false
+		}
+	}
+
+	if !account.ID(id).IsValid() {
+		return false
+	}
+
+	return true
 }
