@@ -149,6 +149,7 @@ func LibVerifyNetwork(ip, id string) bool {
 	}
 
 	if !account.ID(id).IsValid() {
+		fmt.Println("not a valid id:->", id)
 		return false
 	}
 
