@@ -20,14 +20,14 @@ func test4() {
 	if !b {
 		panic("unlock failed")
 	}
-	b = LibStartService(os.Args[1], os.Args[2], os.Args[3])
+	b = LibStartService(os.Args[1], os.Args[2], os.Args[3], "")
 	if !b {
 		panic("service failed")
 	}
 	<-make(chan struct{})
 }
 func test1() {
-	b := LibStartService(os.Args[1], os.Args[2], os.Args[3])
+	b := LibStartService(os.Args[1], os.Args[2], os.Args[3], "")
 	if !b {
 		panic("failed")
 	}

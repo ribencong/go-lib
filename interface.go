@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/network"
+	"github.com/youpipe/go-youPipe/pbs"
 	"golang.org/x/crypto/ed25519"
 )
 
 var currentService *Node = nil
 var unlockedAcc *account.Account = nil
-var currentLicense *pbs.License = nil
 
 const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
 
@@ -60,7 +59,7 @@ func LibInitAccount(cipherTxt, address, password string) bool {
 }
 
 //export LibStartService
-func LibStartService(ls, rip, proxyID string) bool {
+func LibStartService(ls, rip, proxyID, license string) bool {
 	if nil == unlockedAcc {
 		fmt.Println("please unlock this node first")
 		return false
@@ -83,8 +82,20 @@ func LibStartService(ls, rip, proxyID string) bool {
 	if currentService = NewNode(ls, rs); currentService == nil {
 		return false
 	}
+	l := &pbs.License{}
+	if err := json.Unmarshal([]byte(license), l); err != nil {
+		fmt.Println("parse license err:", err)
+		return false
+	}
+
+	if !verifyLicenseData(l) {
+		fmt.Println("license signature failed:")
+		return false
+	}
+
 	currentService.account = unlockedAcc
 	currentService.proxyID = proxyID
+	currentService.license = l
 
 	go currentService.Serving()
 	return true
@@ -111,6 +122,10 @@ func LibVerifyLicense(license string) bool {
 		return false
 	}
 
+	return verifyLicenseData(l)
+}
+
+func verifyLicenseData(l *pbs.License) bool {
 	msg, err := json.Marshal(l.Data)
 	if err != nil {
 		fmt.Println(err)
@@ -123,42 +138,4 @@ func LibVerifyLicense(license string) bool {
 //export LibIsAccountInit
 func LibIsAccountInit() bool {
 	return unlockedAcc != nil
-}
-
-//export LibMountLicense
-func LibMountLicense(licenseStr string) bool {
-
-	if unlockedAcc == nil {
-		fmt.Println("please init account first")
-		return false
-	}
-	license := &pbs.License{}
-	if err := json.Unmarshal([]byte(licenseStr), license); err != nil {
-		fmt.Println(err)
-		return false
-	}
-	license.Data.UserAddr = unlockedAcc.Address.ToString()
-
-	data, err := json.Marshal(license.Data)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	if ok := ed25519.Verify(KingFinger.ToPubKey(), data, license.Sig); !ok {
-		fmt.Println("signature verify failed")
-		return false
-	}
-	currentLicense = license
-	return true
-}
-
-//export LibIsLicenseInit
-func LibIsLicenseInit() bool {
-	return currentLicense != nil
-}
-
-//export LibReMoveLicense
-func LibReMoveLicense() {
-	currentLicense = nil
 }

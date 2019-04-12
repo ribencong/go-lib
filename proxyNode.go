@@ -17,6 +17,7 @@ type Node struct {
 	accessPoint string
 	account     *account.Account
 	proxyID     string
+	license     *pbs.License
 }
 
 func NewNode(lAddr, rAddr string) *Node {
