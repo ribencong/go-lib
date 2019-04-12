@@ -138,6 +138,7 @@ func verifyLicenseData(l *pbs.License) bool {
 
 //export LibVerifyNetwork
 func LibVerifyNetwork(ip, id string) bool {
+	fmt.Println(ip, id)
 	trial := net.ParseIP(ip)
 	if trial.To4() == nil {
 		fmt.Printf("%v is not a valid IPv4 address\n", trial)
