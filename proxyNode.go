@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/gogo/protobuf/proto"
+	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
-	"github.com/youpipe/go-youPipe/pbs"
 	"github.com/youpipe/go-youPipe/service"
 	"io"
 	"net"

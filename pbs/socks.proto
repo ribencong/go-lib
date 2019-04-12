@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package pbs;
+
+enum errorNo{
+    Success = 0;
+}
+
+message Sock5Req{
+//    string ver      = 1;
+    string address  = 2;
+    string target   = 3;
+    bool   isRaw    = 4;
+}
+
+message Sock5Res{
+    string address  = 1;
+}

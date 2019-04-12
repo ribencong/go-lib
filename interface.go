@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/network"
-	"github.com/youpipe/go-youPipe/pbs"
 	"golang.org/x/crypto/ed25519"
 	"net"
 )

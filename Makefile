@@ -2,7 +2,7 @@ BINDIR=bin
 
 .PHONY: pbs
 
-all: lib test
+all: pbs lib test
 
 pbs:
 	cd pbs/ && $(MAKE)
