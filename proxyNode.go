@@ -1,9 +1,8 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/gogo/protobuf/proto"
-	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/service"
 	"io"
@@ -17,7 +16,7 @@ type Node struct {
 	accessPoint string
 	account     *account.Account
 	proxyID     string
-	license     *pbs.License
+	license     *service.License
 }
 
 func NewNode(lAddr, rAddr string) *Node {
@@ -71,7 +70,7 @@ func (node *Node) handleConn(conn net.Conn) {
 	}
 	fmt.Println("target info:->", obj.target)
 
-	apConn, err := node.findProxy(obj, conn)
+	apConn, err := node.findProxy(obj)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -87,52 +86,37 @@ func (node *Node) handleConn(conn net.Conn) {
 	}
 }
 
-func (node *Node) findProxy(obj *rfcObj, conn net.Conn) (net.Conn, error) {
-	apConn, err := net.Dial("tcp", node.accessPoint)
+func (node *Node) findProxy(obj *rfcObj) (net.Conn, error) {
+	c, err := net.Dial("tcp", node.accessPoint)
 	if err != nil {
 		fmt.Printf("failed to connect to (%s) access point server (%s):->", node.accessPoint, err)
 		return nil, err
 	}
-	apConn.(*net.TCPConn).SetKeepAlive(true)
+	c.(*net.TCPConn).SetKeepAlive(true)
+	apConn := &service.CtrlConn{Conn: c}
 
-	req := &pbs.Sock5Req{
-		Address: string(node.account.Address),
-		Target:  obj.target,
-		IsRaw:   false,
-	}
-	data, _ := proto.Marshal(req)
+	req := service.NewHandReq(string(node.account.Address), obj.target, unlockedAcc.Key.PriKey)
+
+	data, _ := json.Marshal(req)
 	if _, err := apConn.Write(data); err != nil {
 		fmt.Printf("failed to send target(%s) \n", obj.target)
 		return nil, err
 	}
 
-	buffer := make([]byte, 1024)
-	n, err := apConn.Read(buffer)
-	if err != nil {
+	ack := &service.ACK{}
+	if err := apConn.ReadMsg(ack); err != nil {
 		fmt.Printf("failed to read ap response :->%v", err)
 		return nil, err
 	}
 
-	ack := &pbs.Sock5Res{}
-	if err = proto.Unmarshal(buffer[:n], ack); err != nil {
-		fmt.Printf("unmarshal response :->%v", err)
+	var aesKey [32]byte
+	if err := node.account.CreateAesKey(&aesKey, node.proxyID); err != nil {
+		fmt.Printf("create aes key for address(%s) err(%v)", node.proxyID, err)
 		return nil, err
 	}
 
-	if ack.Address != node.proxyID {
-		return nil, fmt.Errorf("input address(%s) and proxy id(%s) are not same", ack.Address, node.proxyID)
-	}
-
-	if req.IsRaw == false {
-		var aesKey [32]byte
-		if err := node.account.CreateAesKey(&aesKey, ack.Address); err != nil {
-			fmt.Printf("create aes key for address(%s) err(%v)", ack.Address, err)
-			return nil, err
-		}
-		apConn, err = service.Shadow(apConn, aesKey)
-	}
-
-	return apConn, nil
+	sConn, err := service.Shadow(c, aesKey)
+	return sConn, nil
 }
 
 func relay(left, right net.Conn) (int64, int64, error) {

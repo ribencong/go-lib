@@ -1,11 +1,12 @@
 BINDIR=bin
 
-.PHONY: pbs
+#.PHONY: pbs
 
-all: pbs lib test
-
-pbs:
-	cd pbs/ && $(MAKE)
+all: lib test
+#
+#pbs:
+#	cd pbs/ && $(MAKE)
+#
 test:
 	 go build -ldflags '-w -s' -o $(BINDIR)/ctest
 lib:

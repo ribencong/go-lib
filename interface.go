@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/youpipe/go-lib/pbs"
 	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/network"
+	"github.com/youpipe/go-youPipe/service"
 	"golang.org/x/crypto/ed25519"
 	"net"
 )
@@ -84,7 +84,7 @@ func LibStartService(ls, rip, proxyID, license string) bool {
 	if currentService = NewNode(ls, rs); currentService == nil {
 		return false
 	}
-	l := &pbs.License{}
+	l := &service.License{}
 	if err := json.Unmarshal([]byte(license), l); err != nil {
 		fmt.Println("parse license err:", err)
 		return false
@@ -118,7 +118,7 @@ func LibStopService() bool {
 //export LibVerifyLicense
 func LibVerifyLicense(license string) bool {
 	fmt.Println(license)
-	l := &pbs.License{}
+	l := &service.License{}
 	if err := json.Unmarshal([]byte(license), l); err != nil {
 		fmt.Println(err)
 		return false
@@ -127,14 +127,14 @@ func LibVerifyLicense(license string) bool {
 	return verifyLicenseData(l)
 }
 
-func verifyLicenseData(l *pbs.License) bool {
-	msg, err := json.Marshal(l.Data)
+func verifyLicenseData(l *service.License) bool {
+	msg, err := json.Marshal(l.Content)
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
 
-	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Sig)
+	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Signature)
 }
 
 //export LibVerifyNetwork
