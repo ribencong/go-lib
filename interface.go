@@ -124,11 +124,11 @@ func LibVerifyLicense(license string) bool {
 		return false
 	}
 
-	return verifyLicenseData(l)
+	return l.Verify() != nil
 }
 
 func verifyLicenseData(l *service.License) bool {
-	msg, err := json.Marshal(l.Content)
+	msg, err := json.Marshal(l.LicenseData)
 	if err != nil {
 		fmt.Println(err)
 		return false

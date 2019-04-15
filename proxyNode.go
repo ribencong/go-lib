@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/youpipe/go-youPipe/account"
 	"github.com/youpipe/go-youPipe/service"
+	"golang.org/x/crypto/ed25519"
 	"io"
 	"net"
 	"time"
@@ -95,7 +96,7 @@ func (node *Node) findProxy(obj *rfcObj) (net.Conn, error) {
 	c.(*net.TCPConn).SetKeepAlive(true)
 	apConn := &service.CtrlConn{Conn: c}
 
-	req := service.NewHandReq(string(node.account.Address), obj.target, unlockedAcc.Key.PriKey)
+	req := NewHandReq(string(node.account.Address), obj.target)
 
 	data, _ := json.Marshal(req)
 	if _, err := apConn.Write(data); err != nil {
@@ -150,4 +151,25 @@ func (node *Node) IsRunning() bool {
 
 func (node *Node) Stop() {
 	node.localServe.Close()
+}
+
+func NewHandReq(addr, target string) *service.HandShake {
+	reqData := &service.HandShakeData{
+		Addr:   addr,
+		Target: target,
+	}
+
+	data, err := json.Marshal(reqData)
+	if err != nil {
+		fmt.Println("marshal hand shake data err:->", err)
+		return nil
+	}
+
+	sig := ed25519.Sign(unlockedAcc.Key.PriKey, data)
+	req := &service.HandShake{
+		Sig:           sig,
+		HandShakeData: reqData,
+	}
+
+	return req
 }
