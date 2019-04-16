@@ -2,18 +2,15 @@ package main
 
 import "C"
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/youpipe/go-youPipe/account"
-	"github.com/youpipe/go-youPipe/network"
 	"github.com/youpipe/go-youPipe/service"
-	"golang.org/x/crypto/ed25519"
-	"net"
+	"github.com/youpipe/go-youPipe/service/client"
 )
 
-var currentService *Node = nil
-var unlockedAcc *account.Account = nil
+var clientConf = &client.Config{}
+var proxyClient *client.Client = nil
 
 const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
 
@@ -26,134 +23,80 @@ func LibCreateAccount(password string) (*C.char, *C.char) {
 	}
 	address := key.ToNodeId()
 	cipherTxt := base58.Encode(key.LockedKey)
-	fmt.Println(string(address))
-	fmt.Println(cipherTxt)
 
 	return C.CString(address.ToString()), C.CString(cipherTxt)
 }
 
-//export LibInitAccount
-func LibInitAccount(cipherTxt, address, password string) bool {
-	if unlockedAcc != nil && address == unlockedAcc.Address.ToString() {
-		return true
-	}
-
-	id, err := account.ConvertToID(address)
+//export LibCreateClient
+func LibCreateClient(password string) bool {
+	pc, err := client.NewClient(clientConf, password)
 	if err != nil {
-		fmt.Println(err)
 		return false
 	}
-	acc := &account.Account{
-		Address: id,
-		Key: &account.Key{
-			LockedKey: base58.Decode(cipherTxt),
-		},
-	}
-
-	if ok := acc.UnlockAcc(password); ok {
-		unlockedAcc = acc
-		fmt.Println("Unlock account success")
-		fmt.Println(acc)
-		return true
-	}
-	return false
-}
-
-//export LibStartService
-func LibStartService(ls, rip, proxyID, license string) bool {
-	fmt.Println(ls, rip, proxyID, license)
-	if nil == unlockedAcc {
-		fmt.Println("please unlock this node first")
-		return false
-	}
-
-	pid, err := account.ConvertToID(proxyID)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	if currentService != nil && currentService.IsRunning() {
-		LibStopService()
-	}
-
-	port := pid.ToSocketPort()
-	rs := network.JoinHostPort(rip, port)
-	fmt.Printf("start service:%s<->%s peerId(%s)\n", ls, rs, pid)
-
-	if currentService = NewNode(ls, rs); currentService == nil {
-		return false
-	}
-	l := &service.License{}
-	if err := json.Unmarshal([]byte(license), l); err != nil {
-		fmt.Println("parse license err:", err)
-		return false
-	}
-
-	if !verifyLicenseData(l) {
-		fmt.Println("license signature failed:")
-		return false
-	}
-
-	currentService.account = unlockedAcc
-	currentService.proxyID = proxyID
-	currentService.license = l
-
-	go currentService.Serving()
+	proxyClient = pc
 	return true
 }
 
-//export LibStopService
-func LibStopService() bool {
-	if currentService == nil {
-		return true
+//export LibProxyRun
+func LibProxyRun() bool {
+	if proxyClient == nil {
+		return false
 	}
+	fmt.Print("start proxy success.....\n")
 
-	currentService.Stop()
-	currentService = nil
-	defer fmt.Print("stop service success.....\n")
+	go func() {
+		err := proxyClient.Running()
+		fmt.Println(err)
+		LibStopClient()
+	}()
+
+	return true
+}
+
+//export LibStopClient
+func LibStopClient() bool {
+	proxyClient.Close()
+	return true
+}
+
+//export LibSetAccInfo
+func LibSetAccInfo(cipherTxt, address string) {
+	clientConf.Addr = address
+	clientConf.Cipher = cipherTxt
+}
+
+//export LibVerifyAccount
+func LibVerifyAccount(cipherTxt, address, password string) bool {
+	if _, err := account.AccFromString(address, cipherTxt, password); err != nil {
+		return false
+	}
 	return true
 }
 
 //export LibVerifyLicense
 func LibVerifyLicense(license string) bool {
-	fmt.Println(license)
-	l := &service.License{}
-	if err := json.Unmarshal([]byte(license), l); err != nil {
-		fmt.Println(err)
+	if _, err := service.ParseLicense(license); err != nil {
+		return false
+	}
+	return true
+}
+
+//export LibSetLicense
+func LibSetLicense(license string) {
+	clientConf.License = license
+}
+
+//export LibVSetNetworks
+func LibVSetNetworks(ipIds []string) {
+	clientConf.Services = ipIds
+}
+
+//export LibVerifyNodeId
+func LibVerifyNodeId(ipId string) bool {
+	node := service.ParseService(ipId)
+	if node == nil {
 		return false
 	}
 
-	return l.Verify() != nil
-}
-
-func verifyLicenseData(l *service.License) bool {
-	msg, err := json.Marshal(l.LicenseData)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-
-	return ed25519.Verify(KingFinger.ToPubKey(), msg, l.Signature)
-}
-
-//export LibVerifyNetwork
-func LibVerifyNetwork(ip, id string) int {
-	fmt.Println(ip, id)
-	trial := net.ParseIP(ip)
-	if trial.To4() == nil {
-		fmt.Printf("%v is not a valid IPv4 address\n", trial)
-
-		if trial.To16() == nil {
-			fmt.Printf("%v is not a valid IP address\n", trial)
-			return -1
-		}
-	}
-
-	if !account.ID(id).IsValid() {
-		fmt.Println("not a valid id:->", id)
-		return -2
-	}
-
-	return 0
+	return node.IsOK()
 }
