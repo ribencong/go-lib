@@ -1,12 +1,41 @@
 package main
 
 import "C"
-import "fmt"
+import (
+	"github.com/youpipe/go-youPipe/service/client"
+)
 
-func main() {
-	test5()
+var conf = &client.Config{
+	Addr:        "YPAPwe9SGxqozFTMX42B6isP6zFqYJufYb1hWzuT2bbjJZ",
+	Cipher:      "F5cxaiyXXyrGavFB2nU8tcKSp1h2kieaKceMrzAr7ffg5rcHZJta2BgohbYR1NExpRu95YCLVoBH1YL7C8iwoHjTwKmRid4SBj6vmqUVuDbED",
+	LocalServer: ":1080",
+	License:     `{"Signature":"fzfCN5AOCB0BdFQjGWipq/nC2buv6yF+qr41sc6pjKMsqm7zA1qQ0SjJvGDrXbNmupkV1gR1Odfe2npUxej6Dw==","StartDate":"2019-04-18T11:03:36.886863+08:00","EndDate":"2019-04-25T11:03:36.886863+08:00","UserAddr":"YPAPwe9SGxqozFTMX42B6isP6zFqYJufYb1hWzuT2bbjJZ"}`,
+	Services:    []string{"YPBzFaBFv8ZjkPQxtozNQe1c9CvrGXYg4tytuWjo9jiaZx@192.168.1.108"},
 }
 
-func test5() {
-	fmt.Println("LibVerifyLicense:->", LibVerifyLicense(`{"sig":"fgmReXNZGEuRlwzvkBHXbjV+pwVdpe75KLCLVvFdkknA5k7FfWLTFk50q1FriX2lbt1pTHFtz7+OmwOukciyCQ==","data":{"StartTime":"2019-04-10 19:26:13","EndTime":"2019-04-14 19:26:13","UserAddr":"YP7Bdx1LixC9yBnnmoJky4E4QsKxjCdhjvKfF64JxjRJfR"}}`))
+func main() {
+	test1()
+}
+
+func test1() {
+	cli, err := client.NewClient(conf, "12345678")
+	if err != nil {
+		panic(err)
+	}
+
+	if err := cli.Running(); err != nil {
+		panic(err.Error())
+	}
+}
+
+func test2() {
+	_, err := client.NewClient(conf, "12345678")
+	if err != nil {
+		panic(err)
+	}
+
+	cli2, err := client.NewClient(conf, "12345678")
+	if cli2 != nil {
+		panic(err)
+	}
 }
