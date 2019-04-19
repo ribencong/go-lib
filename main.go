@@ -10,14 +10,11 @@ var conf = &client.Config{
 	Cipher:      "F5cxaiyXXyrGavFB2nU8tcKSp1h2kieaKceMrzAr7ffg5rcHZJta2BgohbYR1NExpRu95YCLVoBH1YL7C8iwoHjTwKmRid4SBj6vmqUVuDbED",
 	LocalServer: ":1080",
 	License:     `{"Signature":"fzfCN5AOCB0BdFQjGWipq/nC2buv6yF+qr41sc6pjKMsqm7zA1qQ0SjJvGDrXbNmupkV1gR1Odfe2npUxej6Dw==","StartDate":"2019-04-18T11:03:36.886863+08:00","EndDate":"2019-04-25T11:03:36.886863+08:00","UserAddr":"YPAPwe9SGxqozFTMX42B6isP6zFqYJufYb1hWzuT2bbjJZ"}`,
-	Services:    []string{"YPBzFaBFv8ZjkPQxtozNQe1c9CvrGXYg4tytuWjo9jiaZx@192.168.1.108"},
+	Services: []string{"YPBzFaBFv8ZjkPQxtozNQe1c9CvrGXYg4tytuWjo9jiaZx@192.168.1.108",
+		"YPdtVMDDdgHNTQKbJy447puv68zLjiuFdzfDEwXVtS11H@192.168.103.101"},
 }
 
 func main() {
-	test1()
-}
-
-func test1() {
 	cli, err := client.NewClient(conf, "12345678")
 	if err != nil {
 		panic(err)
@@ -25,17 +22,5 @@ func test1() {
 
 	if err := cli.Running(); err != nil {
 		panic(err.Error())
-	}
-}
-
-func test2() {
-	_, err := client.NewClient(conf, "12345678")
-	if err != nil {
-		panic(err)
-	}
-
-	cli2, err := client.NewClient(conf, "12345678")
-	if cli2 != nil {
-		panic(err)
 	}
 }
