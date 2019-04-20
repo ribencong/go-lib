@@ -2,7 +2,9 @@ package main
 
 import "C"
 import (
+	"fmt"
 	"github.com/youpipe/go-youPipe/service/client"
+	"os"
 )
 
 var conf = &client.Config{
@@ -22,6 +24,7 @@ func main() {
 	}
 
 	if err := cli.Running(); err != nil {
-		panic(err)
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
