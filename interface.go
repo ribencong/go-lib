@@ -85,18 +85,3 @@ func LibVerifyLicense(license string) bool {
 func LibSetLicense(license string) {
 	clientConf.License = license
 }
-
-//export LibVSetNetworks
-func LibVSetNetworks(ipIds []string) {
-	clientConf.Services = ipIds
-}
-
-//export LibVerifyNodeId
-func LibVerifyNodeId(ipId string) bool {
-	node := service.ParseService(ipId)
-	if node == nil {
-		return false
-	}
-
-	return node.IsOK()
-}
