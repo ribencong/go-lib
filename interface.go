@@ -9,7 +9,6 @@ import (
 	"github.com/youpipe/go-youPipe/service/client"
 )
 
-var clientConf = &client.Config{}
 var proxyClient *client.Client = nil
 
 const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
@@ -27,9 +26,26 @@ func LibCreateAccount(password string) (*C.char, *C.char) {
 	return C.CString(address.ToString()), C.CString(cipherTxt)
 }
 
+//export LibIsInit
+func LibIsInit() bool {
+	return proxyClient != nil
+}
+
 //export LibCreateClient
-func LibCreateClient(password string) bool {
-	pc, err := client.NewClient(clientConf, password)
+func LibCreateClient(addr, cipher, password, license, locSer string) bool {
+
+	if proxyClient != nil {
+		return true
+	}
+
+	conf := &client.Config{
+		Addr:        addr,
+		Cipher:      cipher,
+		License:     license,
+		LocalServer: locSer,
+	}
+
+	pc, err := client.NewClient(conf, password)
 	if err != nil {
 		return false
 	}
@@ -38,31 +54,26 @@ func LibCreateClient(password string) bool {
 }
 
 //export LibProxyRun
-func LibProxyRun() bool {
+func LibProxyRun() {
 	if proxyClient == nil {
-		return false
+		return
 	}
 	fmt.Print("start proxy success.....\n")
 
-	go func() {
-		err := proxyClient.Running()
-		fmt.Println(err)
-		LibStopClient()
-	}()
-
-	return true
+	err := proxyClient.Running()
+	fmt.Println(err)
+	proxyClient = nil
 }
 
 //export LibStopClient
-func LibStopClient() bool {
-	proxyClient.Close()
-	return true
-}
+func LibStopClient() {
+	if proxyClient == nil {
+		return
+	}
 
-//export LibSetAccInfo
-func LibSetAccInfo(cipherTxt, address string) {
-	clientConf.Addr = address
-	clientConf.Cipher = cipherTxt
+	proxyClient.Close()
+	proxyClient = nil
+	return
 }
 
 //export LibVerifyAccount
@@ -79,9 +90,4 @@ func LibVerifyLicense(license string) bool {
 		return false
 	}
 	return true
-}
-
-//export LibSetLicense
-func LibSetLicense(license string) {
-	clientConf.License = license
 }
