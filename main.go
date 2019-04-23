@@ -15,6 +15,14 @@ var conf = &client.Config{
 }
 
 func main() {
+	test1()
+}
+func test1() {
+	LibVerifyLicense(`{"sig":"dzs4In4HGYcgZbAp0cskbh8gvCjZDNcqOTBOHN6+3DSiqZiUYk4Mb4g2CoIBvBJojSTh7JdUNPpp8fPbMwRtAQ==","start":"2019-04-23 08:34:21","end":"2019-05-03 08:34:21","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}
+`)
+}
+
+func clientMain() {
 	cli, err := client.NewClient(conf, "12345678")
 	if err != nil {
 		panic(err)

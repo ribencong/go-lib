@@ -87,6 +87,7 @@ func LibVerifyAccount(cipherTxt, address, password string) bool {
 //export LibVerifyLicense
 func LibVerifyLicense(license string) bool {
 	if _, err := service.ParseLicense(license); err != nil {
+		fmt.Println(err)
 		return false
 	}
 	return true
