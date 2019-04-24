@@ -32,7 +32,7 @@ func LibIsInit() bool {
 }
 
 //export LibCreateClient
-func LibCreateClient(addr, cipher, password, license, locSer string) bool {
+func LibCreateClient(addr, cipher, password, license, locSer, netUrl string) bool {
 
 	if proxyClient != nil {
 		return true
@@ -43,6 +43,7 @@ func LibCreateClient(addr, cipher, password, license, locSer string) bool {
 		Cipher:      cipher,
 		License:     license,
 		LocalServer: locSer,
+		SettingUrl:  netUrl,
 	}
 
 	pc, err := client.NewClient(conf, password)
