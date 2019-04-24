@@ -8,14 +8,14 @@ import (
 )
 
 var conf = &client.Config{
-	Addr:        "YPAPwe9SGxqozFTMX42B6isP6zFqYJufYb1hWzuT2bbjJZ",
-	Cipher:      "F5cxaiyXXyrGavFB2nU8tcKSp1h2kieaKceMrzAr7ffg5rcHZJta2BgohbYR1NExpRu95YCLVoBH1YL7C8iwoHjTwKmRid4SBj6vmqUVuDbED",
+	Addr:        "YP7Bdx1LixC9yBnnmoJky4E4QsKxjCdhjvKfF64JxjRJfR",
+	Cipher:      "2C9fRZqk3SE73w7WEsBnodCCg4yNipv9pJEgyWEjG9ZKWnXUDwD1XfSLtmo9sLSy1sdHMpvvQ2KFgqQjYWKJSUJRM75hoWvaYr34suqdMP1kzP",
 	LocalServer: ":51080",
-	License:     `{"Signature":"fzfCN5AOCB0BdFQjGWipq/nC2buv6yF+qr41sc6pjKMsqm7zA1qQ0SjJvGDrXbNmupkV1gR1Odfe2npUxej6Dw==","StartDate":"2019-04-18T11:03:36.886863+08:00","EndDate":"2019-04-25T11:03:36.886863+08:00","UserAddr":"YPAPwe9SGxqozFTMX42B6isP6zFqYJufYb1hWzuT2bbjJZ"}`,
+	License:     `{"sig":"VF2XU6t/gXSp1rSnMUMlYrvRJ3KMAmDHKmzP9ZkaM8rOb97CAdksr49bSe7uQ40mS7yxpyM+RxzmoWWlbhLhCQ==","start":"2019-04-24 09:04:00","end":"2019-05-04 09:04:00","user":"YP7Bdx1LixC9yBnnmoJky4E4QsKxjCdhjvKfF64JxjRJfR"}`,
 }
 
 func main() {
-	test1()
+	clientMain()
 }
 func test1() {
 	LibVerifyLicense(`{"sig":"dzs4In4HGYcgZbAp0cskbh8gvCjZDNcqOTBOHN6+3DSiqZiUYk4Mb4g2CoIBvBJojSTh7JdUNPpp8fPbMwRtAQ==","start":"2019-04-23 08:34:21","end":"2019-05-03 08:34:21","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}
