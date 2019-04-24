@@ -38,6 +38,8 @@ func LibCreateClient(addr, cipher, password, license, locSer, netUrl string) boo
 		return true
 	}
 
+	fmt.Println(addr, cipher, license, locSer, netUrl)
+
 	conf := &client.Config{
 		Addr:        addr,
 		Cipher:      cipher,
@@ -48,6 +50,7 @@ func LibCreateClient(addr, cipher, password, license, locSer, netUrl string) boo
 
 	pc, err := client.NewClient(conf, password)
 	if err != nil {
+		fmt.Println(err)
 		return false
 	}
 	proxyClient = pc
