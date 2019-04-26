@@ -3,7 +3,7 @@ package main
 import "C"
 import (
 	"fmt"
-	"github.com/youpipe/go-youPipe/service/client"
+	"github.com/ribencong/go-youPipe/service/client"
 	"os"
 )
 

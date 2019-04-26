@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/youpipe/go-youPipe/service/client"
+	"github.com/ribencong/go-youPipe/service/client"
 	"testing"
 )
 
