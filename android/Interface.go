@@ -1,35 +1,44 @@
-package androidDelegate
+package tun2socksA
 
-import "syscall"
+import (
+	"fmt"
+	"github.com/ribencong/go-lib/tun2socks"
+	"io"
+)
 
 type VpnService interface {
-	Protect(fd int) bool
+	Protect(fd int32) bool
 }
 
-type LogService interface {
-	InsertProxyLog(log string, level int)
+type VpnInputStream interface {
+	io.ReadCloser
+}
+type VpnOutputStream interface {
+	io.WriteCloser
 }
 
-type PacketFlow interface {
-	WritePacket(packet []byte)
-}
+var _instance *tun2socks.Tun2Socks = nil
 
-func InputPacket(data []byte) {
-}
+func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, locSocks string) error {
 
-func SetNonblock(fd int, nonblocking bool) bool {
-	err := syscall.SetNonblock(fd, nonblocking)
-	if err != nil {
-		return false
+	if reader == nil || writer == nil || service == nil {
+		return fmt.Errorf("parameter invalid")
 	}
-	return true
+
+	control := func(fd uintptr) {
+		service.Protect(int32(fd))
+	}
+
+	t2s, err := tun2socks.New(reader, writer, control, locSocks)
+	_instance = t2s
+	return err
 }
 
-func SetLocalDNS(dns string) {
+func Run() {
+	go _instance.Writing()
+	_instance.Reading()
 }
 
-func StartTun(packetFlow PacketFlow, vpnService VpnService, logService LogService) {
-}
-
-func StopTun() {
+func StopVpn() {
+	_instance.Close()
 }
