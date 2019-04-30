@@ -25,13 +25,16 @@ func isPrivate(ip net.IP) bool {
 type ConnProtect func(fd uintptr)
 
 type Tun2Socks struct {
-	dataSource     io.ReadCloser
+	dataSource     VpnInputStream
 	localSocksAddr string
 	protect        ConnProtect
 }
 
-func New(reader io.ReadCloser, writer io.WriteCloser, protect ConnProtect, locSocks string) (*Tun2Socks, error) {
+type VpnInputStream interface {
+	ReadBuff() []byte
+}
 
+func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, locSocks string) (*Tun2Socks, error) {
 	tsc := &Tun2Socks{
 		dataSource:     reader,
 		localSocksAddr: locSocks,
@@ -41,26 +44,16 @@ func New(reader io.ReadCloser, writer io.WriteCloser, protect ConnProtect, locSo
 }
 
 func (t2s *Tun2Socks) Reading() {
-	// reader
-	buf := make([]byte, MTU)
-	//var ip packet.IPv4
-	//var tcp packet.TCP
-	//var udp packet.UDP
-
 	for {
-		n, e := t2s.dataSource.Read(buf)
-		if e != nil {
-			log.Printf("read packet error: %v", e)
-			return
-		}
-		if n == 0 {
+		buf := t2s.dataSource.ReadBuff()
+		if len(buf) == 0 {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
-		log.Printf("(%d)[%02x]", n, buf[:n])
+		log.Printf("(%d)[%02x]", len(buf), buf)
 
-		header, err := ipv4.ParseHeader(buf[:n])
+		header, err := ipv4.ParseHeader(buf)
 		if err != nil {
 			log.Printf("%v", err)
 			continue

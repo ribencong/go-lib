@@ -11,8 +11,9 @@ type VpnService interface {
 }
 
 type VpnInputStream interface {
-	io.ReadCloser
+	tun2socks.VpnInputStream
 }
+
 type VpnOutputStream interface {
 	io.WriteCloser
 }
