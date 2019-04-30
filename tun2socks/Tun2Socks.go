@@ -1,13 +1,11 @@
 package tun2socks
 
 import (
-	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"golang.org/x/net/ipv4"
 	"io"
 	"log"
-	"math"
 	"net"
+	"time"
 )
 
 const (
@@ -43,47 +41,32 @@ func New(reader io.ReadCloser, writer io.WriteCloser, protect ConnProtect, locSo
 }
 
 func (t2s *Tun2Socks) Reading() {
-	var eth layers.Ethernet
-	var ip4 layers.IPv4
-	var ip6 layers.IPv6
-	var tcp layers.TCP
-	var udp layers.UDP
-	var dns layers.DNS
-	var payload gopacket.Payload
-
-	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &ip6, &tcp, &udp, &dns, &payload)
-	decoded := make([]gopacket.LayerType, 0, 10)
-	buf := make([]byte, math.MaxInt16)
+	// reader
+	buf := make([]byte, MTU)
+	//var ip packet.IPv4
+	//var tcp packet.TCP
+	//var udp packet.UDP
 
 	for {
-		n, err := t2s.dataSource.Read(buf)
+		n, e := t2s.dataSource.Read(buf)
+		if e != nil {
+			log.Printf("read packet error: %v", e)
+			return
+		}
+		if n == 0 {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+
+		log.Printf("(%d)[%02x]", n, buf[:n])
+
+		header, err := ipv4.ParseHeader(buf[:n])
 		if err != nil {
-			log.Printf("error getting packet: %v", err)
+			log.Printf("%v", err)
 			continue
 		}
 
-		if err = parser.DecodeLayers(buf[:n], &decoded); err != nil {
-			log.Printf("error decoding packet: %v", err)
-			continue
-		}
-
-		for _, typ := range decoded {
-			fmt.Println("  Successfully decoded layer type", typ)
-			switch typ {
-			case layers.LayerTypeEthernet:
-				fmt.Println("    Eth ", eth.SrcMAC, eth.DstMAC)
-			case layers.LayerTypeIPv4:
-				fmt.Println("    IP4 ", ip4.SrcIP, ip4.DstIP)
-			case layers.LayerTypeIPv6:
-				fmt.Println("    IP6 ", ip6.SrcIP, ip6.DstIP)
-			case layers.LayerTypeTCP:
-				fmt.Println("    TCP ", tcp.SrcPort, tcp.DstPort)
-			case layers.LayerTypeUDP:
-				fmt.Println("    UDP ", udp.SrcPort, udp.DstPort)
-			case layers.LayerTypeDNS:
-				fmt.Println("    DNS Questions: ", dns.Questions)
-			}
-		}
+		log.Printf("[%s]->[%s]", header.Src, header.Dst)
 	}
 }
 
