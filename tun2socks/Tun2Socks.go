@@ -125,8 +125,7 @@ func (t2s *Tun2Socks) DnsWaitResponse() {
 		}
 
 		data := makeIpPack(rAddr, buff)
-
-		if _, err := t2s.vpnWriteBack.Write(buff[:n]); err != nil {
+		if _, err := t2s.vpnWriteBack.Write(data); err != nil {
 			log.Println("DNS data write to Tun err:", err)
 			continue
 		}
