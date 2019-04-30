@@ -7,7 +7,7 @@ import (
 )
 
 type VpnService interface {
-	Protect(fd int32) bool
+	ByPass(fd int32) bool
 }
 
 type VpnInputStream interface {
@@ -27,7 +27,7 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 	}
 
 	control := func(fd uintptr) {
-		service.Protect(int32(fd))
+		service.ByPass(int32(fd))
 	}
 
 	t2s, err := tun2socks.New(reader, writer, control, locSocks)
@@ -37,6 +37,7 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 
 func Run() {
 	go _instance.Writing()
+	go _instance.DnsWaitResponse()
 	_instance.Reading()
 }
 
