@@ -36,8 +36,6 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 }
 
 func Run() {
-	go _instance.Writing()
-	go _instance.DnsWaitResponse()
 	_instance.Reading()
 }
 
