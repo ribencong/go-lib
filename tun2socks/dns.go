@@ -87,7 +87,7 @@ func (c *DnsProxy) sendOut(dns *layers.DNS, ip4 *layers.IPv4, udp *layers.UDP) {
 		log.Println("DNS Query err:", e)
 		return
 	}
-	log.Println("DNS Query Send Success:")
+	log.Println("DNS Query Send Success:", dns.Questions[0].Name)
 }
 
 func (c *DnsProxy) DnsWaitResponse() {
@@ -108,9 +108,9 @@ func (c *DnsProxy) DnsWaitResponse() {
 			continue
 		}
 
-		log.Println("DNS-Response-Success:", dns.Answers)
+		log.Println("DNS-Response-Success:", rAddr.String())
 
-		data := c.makeIpPack(rAddr, dns)
+		data := c.makeIpPack(buff[:n], dns)
 		if data == nil {
 			log.Println("make dns ip packet failed:", dns.ID)
 			continue
@@ -123,30 +123,40 @@ func (c *DnsProxy) DnsWaitResponse() {
 	}
 }
 
-func (c *DnsProxy) makeIpPack(addr *net.UDPAddr, dns *layers.DNS) []byte {
+func (c *DnsProxy) makeIpPack(raw []byte, dns *layers.DNS) []byte {
 
 	qs := c.Get(dns.ID)
 	if qs == nil {
 		log.Println("no such request:", dns.ID)
 		return nil
 	}
+	if len(dns.Answers) > 0 {
+		log.Printf("\n dns value ask:%s, ans:%s\n", dns.Questions[0].Name, dns.Answers[0].String())
+	}
+	log.Printf("\n query state:%s(%d) -> %s(%d)\n", qs.ClientIP, qs.ClientPort, qs.RemoteIp, qs.RemotePort)
 
-	ipLayer := &layers.IPv4{
+	ip4 := &layers.IPv4{
+		Version:  4,
+		TTL:      64,
 		SrcIP:    qs.RemoteIp,
 		DstIP:    qs.ClientIP,
 		Protocol: layers.IPProtocolUDP,
 	}
-	udpLayer := &layers.UDP{
+	udp := &layers.UDP{
 		SrcPort: qs.RemotePort,
 		DstPort: qs.ClientPort,
 	}
+
+	udp.Payload = raw
+	udp.SetNetworkLayerForChecksum(ip4)
 
 	b := gopacket.NewSerializeBuffer()
 	opt := gopacket.SerializeOptions{
 		FixLengths:       true,
 		ComputeChecksums: true,
 	}
-	if err := gopacket.SerializeLayers(b, opt, &layers.Ethernet{}, ipLayer, udpLayer, dns); err != nil {
+
+	if err := gopacket.SerializeLayers(b, opt, ip4, udp); err != nil {
 		log.Println("Wrap dns to ip packet  err:", err)
 		return nil
 	}
