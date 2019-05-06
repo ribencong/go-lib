@@ -28,6 +28,7 @@ func isPrivate(ip net.IP) bool {
 type ConnProtect func(fd uintptr)
 type Tun2Socks struct {
 	dnsProxy       *DnsProxy
+	tcpProxy       *TcpProxy
 	dataSource     VpnInputStream
 	vpnWriteBack   io.WriteCloser
 	localSocksAddr string
@@ -40,14 +41,18 @@ type VpnInputStream interface {
 
 func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, locSocks string) (*Tun2Socks, error) {
 
-	proxy, err := NewDnsCache(protect)
+	dns, err := NewDnsCache(protect)
 	if err != nil {
 		return nil, err
 	}
-
-	proxy.VpnWriteBack = writer
+	dns.VpnWriteBack = writer
+	tcp, err := NewTcpProxy(locSocks, protect, writer)
+	if err != nil {
+		return nil, err
+	}
 	tsc := &Tun2Socks{
-		dnsProxy:       proxy,
+		dnsProxy:       dns,
+		tcpProxy:       tcp,
 		dataSource:     reader,
 		vpnWriteBack:   writer,
 		localSocksAddr: locSocks,
@@ -90,6 +95,7 @@ func (t2s *Tun2Socks) Reading() {
 
 				break
 			case layers.LayerTypeTCP:
+				t2s.tcpProxy.ReceivePacket(ip4, tcp)
 				break
 			case layers.LayerTypeUDP:
 				break
@@ -111,7 +117,7 @@ func (t2s *Tun2Socks) Reading() {
 func (t2s *Tun2Socks) Close() {
 }
 
-func WrapIPPacket(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, payload []byte) []byte {
+func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, payload []byte) []byte {
 
 	ip4 := &layers.IPv4{
 		Version:  4,
@@ -125,7 +131,10 @@ func WrapIPPacket(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, payload 
 		DstPort: dstPort,
 	}
 
-	udp.SetNetworkLayerForChecksum(ip4)
+	if err := udp.SetNetworkLayerForChecksum(ip4); err != nil {
+		log.Println("Udp Wrap ip packet check sum err:", err)
+		return nil
+	}
 
 	b := gopacket.NewSerializeBuffer()
 	opt := gopacket.SerializeOptions{
@@ -138,5 +147,36 @@ func WrapIPPacket(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, payload 
 		return nil
 	}
 
+	return b.Bytes()
+}
+func WrapIPPacketForTcp(srcIp, DstIp net.IP, srcPort, dstPort layers.TCPPort, payload []byte) []byte {
+	ip4 := &layers.IPv4{
+		Version:  4,
+		TTL:      64,
+		SrcIP:    srcIp,
+		DstIP:    DstIp,
+		Protocol: layers.IPProtocolTCP,
+	}
+
+	tcp := &layers.TCP{
+		SrcPort: srcPort,
+		DstPort: dstPort,
+	}
+
+	if err := tcp.SetNetworkLayerForChecksum(ip4); err != nil {
+		log.Println("Tcp Wrap ip packet check sum err:", err)
+		return nil
+	}
+
+	b := gopacket.NewSerializeBuffer()
+	opt := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	if err := gopacket.SerializeLayers(b, opt, ip4, tcp, gopacket.Payload(payload)); err != nil {
+		log.Println("Wrap Tcp to ip packet  err:", err)
+		return nil
+	}
 	return b.Bytes()
 }

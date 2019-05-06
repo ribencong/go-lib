@@ -126,7 +126,7 @@ func (c *DnsProxy) DnsWaitResponse() {
 			continue
 		}
 
-		data := WrapIPPacket(qs.ClientIP, qs.RemoteIp, qs.ClientPort, qs.RemotePort, buff[:n])
+		data := WrapIPPacketForUdp(qs.ClientIP, qs.RemoteIp, qs.ClientPort, qs.RemotePort, buff[:n])
 		if data == nil {
 			log.Println("make dns ip packet failed:", dns.ID)
 			continue

@@ -7,7 +7,10 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/ribencong/go-youPipe/service/client"
+	"golang.org/x/net/proxy"
+	"net"
 	"os"
+	"time"
 )
 
 var conf = &client.Config{
@@ -19,7 +22,7 @@ var conf = &client.Config{
 }
 
 func main() {
-	test1()
+	test2()
 }
 func test1() {
 	decodeBytes, err := base64.StdEncoding.DecodeString(os.Args[1])
@@ -72,4 +75,62 @@ func clientMain() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func test2() {
+	conn, err := net.Listen("tcp", ":1080")
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+
+		for {
+			c, e := conn.Accept()
+			if e != nil {
+				panic(e)
+			}
+
+			go func() {
+				obj, err := client.ProxyHandShake(c)
+				if err != nil {
+					fmt.Println("\nSock5 handshake err:->", err)
+					return
+				}
+				fmt.Println("\nProxy handshake success:", obj.Target)
+				c.Write([]byte("Response"))
+				buf := make([]byte, 1024)
+				n, e := c.Read(buf)
+				if e != nil {
+					panic(e)
+				}
+				fmt.Printf("\n\nServer:%s\n\n", buf[:n])
+				time.Sleep(time.Second)
+				c.Close()
+			}()
+		}
+	}()
+
+	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:1080", nil, nil)
+	if err != nil {
+		panic(err)
+	}
+
+	c, err := dialer.Dial("tcp", "nbsio.net:80")
+	if err != nil {
+		panic(err)
+	}
+
+	buf := make([]byte, 1024)
+	n, e := c.Read(buf)
+	if e != nil {
+		panic(e)
+	}
+	fmt.Printf("\n\nClient:%s\n\n", buf[:n])
+
+	if _, e := c.Write([]byte("Get")); e != nil {
+		print(e)
+	}
+
+	time.Sleep(25 * time.Second)
 }
