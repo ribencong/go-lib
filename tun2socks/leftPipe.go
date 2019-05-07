@@ -4,8 +4,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"syscall"
-	"time"
 )
 
 type LeftPipe struct {
@@ -16,26 +14,39 @@ type LeftPipe struct {
 }
 
 func (pipe LeftPipe) Working() {
+	buff := make([]byte, 1024)
+	defer log.Println("Left pipe work exit:", pipe.leftConn.LocalAddr(), pipe.leftConn.RemoteAddr())
+	defer pipe.leftConn.Close()
 
-	d := &net.Dialer{
-		Timeout: time.Second * 2,
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(pipe.protect)
-		},
+	for {
+		n, e := pipe.leftConn.Read(buff)
+		if e != nil {
+			log.Println("Inner socks Read err:", e)
+			return
+		}
+
+		log.Println("Success Step 1:", n, buff[:n])
 	}
 
-	c, e := d.Dial("tcp", pipe.tgtAddr)
-	if e != nil {
-		log.Println("Dial remote err:", e)
-		return
-	}
-
-	pipe.rightConn = c.(*net.TCPConn)
-
-	go pipe.Waiting()
-
-	n, e := io.Copy(pipe.rightConn, pipe.leftConn)
-	log.Println("Copy from local to remote finished:", n, e)
+	//d := &net.Dialer{
+	//	Timeout: time.Second * 2,
+	//	Control: func(network, address string, c syscall.RawConn) error {
+	//		return c.Control(pipe.protect)
+	//	},
+	//}
+	//
+	//c, e := d.Dial("tcp", pipe.tgtAddr)
+	//if e != nil {
+	//	log.Println("Dial remote err:", e)
+	//	return
+	//}
+	//log.Printf("pipe dial success: %s->%s:", c.LocalAddr(), c.RemoteAddr())
+	//pipe.rightConn = c.(*net.TCPConn)
+	//
+	//go pipe.Waiting()
+	//
+	//n, e := io.Copy(pipe.rightConn, pipe.leftConn)
+	//log.Println("Copy from local to remote finished:", n, e)
 }
 
 func (pipe LeftPipe) Waiting() {

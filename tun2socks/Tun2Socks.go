@@ -76,11 +76,9 @@ func (t2s *Tun2Socks) Reading() {
 		dns := &layers.DNS{}
 		parser := gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, ip4, tcp, udp, dns)
 		decodedLayers := make([]gopacket.LayerType, 0, 4)
-		if err := parser.DecodeLayers(buf, &decodedLayers); err != nil {
-			continue
-		}
-
+		err := parser.DecodeLayers(buf, &decodedLayers)
 		for _, typ := range decodedLayers {
+			log.Println("  Successfully decoded layer type", typ)
 			switch typ {
 			case layers.LayerTypeDNS:
 				if dns.QDCount == 0 {
@@ -97,15 +95,19 @@ func (t2s *Tun2Socks) Reading() {
 				break
 			case layers.LayerTypeIPv4:
 				if !ip4.DstIP.IsGlobalUnicast() || isPrivate(ip4.DstIP) {
-					log.Println("Private data:", ip4.DstIP)
+					log.Println("Warning-------->Private data:", ip4.DstIP)
 					continue
 				}
 				if ip4.Flags&0x1 != 0 || ip4.FragOffset != 0 {
-					log.Println("Fragment data:", ip4.DstIP)
+					log.Println("Warning-------->Fragment data:", ip4.DstIP)
 					continue
 				}
 				break
 			}
+		}
+		if err != nil {
+			log.Println("  Error encountered:", err)
+			continue
 		}
 	}
 }

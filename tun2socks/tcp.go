@@ -1,11 +1,14 @@
 package tun2socks
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"github.com/google/gopacket/layers"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 )
@@ -95,6 +98,8 @@ func (p *TcpProxy) Transfer() {
 			continue
 		}
 
+		log.Println("New conn for session:", s.ToString())
+
 		pipe := &LeftPipe{
 			tgtAddr:  fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort),
 			TcpProxy: p,
@@ -123,10 +128,27 @@ func (p *TcpProxy) RemoveSession(key int) {
 }
 
 func PrintFlow(pre string, ip4 *layers.IPv4, tcp *layers.TCP) {
-	log.Printf("%s	TCP (%s:%d)->(%s:%d) (SYN(%t) ACK(%t) FIN(%t)"+
-		", RST(%t), PSH(%t))\n", pre,
+	fmt.Printf("%s	TCP <%d:%d> (%s:%d)->(%s:%d)",
+		pre, tcp.Seq, tcp.Ack,
 		ip4.SrcIP, tcp.SrcPort,
-		ip4.DstIP, tcp.DstPort, tcp.SYN, tcp.ACK, tcp.FIN, tcp.RST, tcp.PSH)
+		ip4.DstIP, tcp.DstPort)
+
+	if tcp.SYN {
+		fmt.Print(" SYN")
+	}
+	if tcp.ACK {
+		fmt.Print(" ACK")
+	}
+	if tcp.FIN {
+		fmt.Print(" FIN")
+	}
+	if tcp.PSH {
+		fmt.Print(" PSH")
+	}
+	if tcp.RST {
+		fmt.Print(" RST")
+	}
+	fmt.Println()
 }
 
 func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
@@ -141,13 +163,13 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	s.PacketSent++
 
-	//if len(s.hostName) == 0 && len(tcp.Payload) > 10 {
-	//	buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
-	//	if req, err := http.ReadRequest(buf); err == nil {
-	//		log.Println("Host:->", req.Host)
-	//		s.SetHostName(req.Host)
-	//	}
-	//}
+	if len(s.hostName) == 0 && len(tcp.Payload) > 10 {
+		buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
+		if req, err := http.ReadRequest(buf); err == nil {
+			log.Println("Host:->", req.Host)
+			s.SetHostName(req.Host)
+		}
+	}
 
 	ip4.SrcIP = ip4.DstIP
 	ip4.DstIP = p.tunLocIP
@@ -158,7 +180,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//log.Printf("After:%02x", data)
 	log.Println("session:", s.ToString())
-	PrintFlow("-=->tun2Proxy", ip4, tcp)
+	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
 	if _, err := p.VpnWriteBack.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
@@ -184,7 +206,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//log.Printf("After:%02x", data)
 	log.Println("session:", s.ToString())
-	PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
 	if _, err := p.VpnWriteBack.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)
