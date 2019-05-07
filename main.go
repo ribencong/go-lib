@@ -22,7 +22,14 @@ var conf = &client.Config{
 }
 
 func main() {
-	test2()
+	test3()
+}
+
+func test3() {
+	l, _ := net.ListenTCP("tcp", &net.TCPAddr{
+		Port: 51415,
+	})
+	fmt.Println(l.Addr().String())
 }
 func test1() {
 	decodeBytes, err := base64.StdEncoding.DecodeString(os.Args[1])

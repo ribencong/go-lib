@@ -1,79 +1,40 @@
 package tun2socks
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"golang.org/x/net/proxy"
 	"io"
 	"log"
-	"math"
 	"net"
-	"net/http"
 	"sync"
+	"time"
 )
 
 type Session struct {
-	ID        string
-	NeedProxy bool
-	conn      *net.TCPConn
-	hostName  string
-	Src       *net.TCPAddr
-	Dst       *net.TCPAddr
+	NeedProxy  bool
+	hostName   string
+	PacketSent int
+	BytesSent  int
+	UPTime     time.Time
+	RemoteIP   net.IP
+	RemotePort int
 }
 
-func genSSID(srcIP, dstIP net.IP, srcPort, dstPort layers.TCPPort) string {
-	return fmt.Sprintf("%s:%d->%s:%d", srcIP, srcPort, dstIP, dstPort)
+func (s *Session) ToString() string {
+	return fmt.Sprintf("(%s:%t)%s:%d p(%d) b(%d) t=%s",
+		s.hostName, s.NeedProxy, s.RemoteIP, s.RemotePort,
+		s.PacketSent, s.BytesSent, s.UPTime.Format("2006-01-02 15:04:05"))
 }
 
-func newSession(ip4 *layers.IPv4, tcp *layers.TCP, socks5Addr string, protect ConnProtect) (*Session, error) {
+func newSession(ip4 *layers.IPv4, tcp *layers.TCP) *Session {
 	s := &Session{
-		Src: &net.TCPAddr{
-			IP:   ip4.SrcIP,
-			Port: int(tcp.SrcPort),
-		},
-		Dst: &net.TCPAddr{
-			IP:   ip4.DstIP,
-			Port: int(tcp.DstPort),
-		},
+		UPTime:     time.Now(),
+		RemoteIP:   ip4.DstIP,
+		RemotePort: int(tcp.DstPort),
+		NeedProxy:  SysConfig.NeedProxy(ip4.DstIP.String()),
 	}
-	s.NeedProxy = SysConfig.NeedProxy(ip4.DstIP.String())
-
-	if s.NeedProxy {
-		dialer, err := proxy.SOCKS5("tcp", socks5Addr, nil, nil)
-		if err != nil {
-			log.Println("connect to local socks server err:", err)
-			return nil, err
-		}
-
-		c, err := dialer.Dial("tcp", s.Dst.String())
-		if err != nil {
-			log.Println("Dial to local socks server err:", err)
-			return nil, err
-		}
-		s.conn = c.(*net.TCPConn)
-	} else {
-		c, err := net.DialTCP("tcp", nil, s.Dst)
-		if err != nil {
-			log.Println("Create direct conn for tcp err:", err)
-			return nil, err
-		}
-		s.conn = c
-	}
-
-	rawConn, err := s.conn.SyscallConn()
-	if err != nil {
-		log.Println("tcp session SyscallConn err:", s.ID, err)
-		return nil, err
-	}
-
-	if err := rawConn.Control(protect); err != nil {
-		log.Println("tcp session Protect err:", s.ID, err)
-		return nil, err
-	}
-
-	return s, nil
+	return s
 }
 
 func (s *Session) SetHostName(host string) {
@@ -85,85 +46,145 @@ func (s *Session) SetHostName(host string) {
 
 type TcpProxy struct {
 	sync.RWMutex
-	tcpTrans     *net.TCPListener
+	tcpTransfer  *net.TCPListener
 	socks5Addr   string
 	protect      ConnProtect
 	VpnWriteBack io.WriteCloser
-	SessionCache map[string]*Session
+	SessionCache map[int]*Session
 }
 
 func NewTcpProxy(socksAddr string, protect ConnProtect, writer io.WriteCloser) (*TcpProxy, error) {
-	conn, err := net.ListenTCP("tcp", &net.TCPAddr{
-		IP: net.ParseIP("127.0.0.1"),
+	l, e := net.ListenTCP("tcp", &net.TCPAddr{
+		Port: 51414,
 	})
-
-	if err != nil {
-		return nil, err
+	if e != nil {
+		return nil, e
 	}
+
 	p := &TcpProxy{
-		tcpTrans:     conn,
+		tcpTransfer:  l,
 		socks5Addr:   socksAddr,
 		protect:      protect,
 		VpnWriteBack: writer,
-		SessionCache: make(map[string]*Session),
+		SessionCache: make(map[int]*Session),
 	}
+
+	go p.Transfer()
 
 	return p, nil
 }
+func (p *TcpProxy) Transfer() {
 
-func (p *TcpProxy) ReceivePacket(ip4 *layers.IPv4, tcp *layers.TCP) {
-	id := genSSID(ip4.SrcIP, ip4.DstIP, tcp.SrcPort, tcp.DstPort)
-	p.Lock()
-	defer p.Unlock()
+	defer p.tcpTransfer.Close()
 
-	sess := p.SessionCache[id]
-	if sess == nil {
+	log.Println("Tcp Transfer start......", p.tcpTransfer.Addr())
 
-		s, e := newSession(ip4, tcp, p.socks5Addr, p.protect)
-		if e != nil {
+	buf := make([]byte, 1024)
+
+	for {
+		conn, err := p.tcpTransfer.Accept()
+		if err != nil {
+			log.Println("Accept:", err)
 			return
 		}
-		p.SessionCache[id] = s
-		go p.ReadTcpResponse(s)
-		sess = s
-	}
+		log.Println("Accept:", conn.RemoteAddr(), conn.LocalAddr())
 
-	if len(sess.hostName) == 0 && len(tcp.Payload) > 10 {
-
-		buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
-		if req, err := http.ReadRequest(buf); err == nil {
-			log.Println("Host:->", req.Host)
-			sess.SetHostName(req.Host)
+		n, e := conn.Read(buf)
+		if e != nil {
+			log.Println("Read:", n, buf[:n])
+			continue
 		}
-	}
 
-	if _, e := sess.conn.Write(tcp.Payload); e != nil {
-		log.Println("Forward data to local socks server err:", e)
+		if _, e := conn.Write(buf); e != nil {
+			log.Println("Write:", e)
+		}
 	}
 }
 
-func (p *TcpProxy) ReadTcpResponse(s *Session) {
-	buff := make([]byte, math.MaxInt16)
+func (p *TcpProxy) GetSession(key int) *Session {
+	p.RLock()
+	defer p.RUnlock()
+	return p.SessionCache[key]
+}
+func (p *TcpProxy) AddSession(portKey int, s *Session) {
+	p.Lock()
+	defer p.Unlock()
+	p.SessionCache[portKey] = s
+}
 
-	for {
-		n, e := s.conn.Read(buff)
-		if e != nil {
-			log.Println("session read error", s.ID, e)
-			return
-		}
+func (p *TcpProxy) RemoveSession(key int) {
+	p.Lock()
+	defer p.Unlock()
+	delete(p.SessionCache, key)
+}
 
-		data := WrapIPPacketForTcp(s.Dst.IP, s.Src.IP, layers.TCPPort(s.Dst.Port),
-			layers.TCPPort(s.Src.Port), buff[:n])
-		if data == nil {
-			continue
-		}
+var debug = true
 
-		n2, err := p.VpnWriteBack.Write(data)
-		if err != nil {
-			log.Println("Tcp data write to Tun err:", err)
-			continue
-		}
+func (p *TcpProxy) ReceivePacket(ip4 *layers.IPv4, tcp *layers.TCP) {
 
-		log.Printf("(%d)Tcp Vpn (%d)writer(%d) success:", n, len(data), n2)
+	if int(tcp.SrcPort) == 51414 {
+		log.Println("Step 1 Success")
+		return
 	}
+
+	log.Printf("	TCP (%s:%d)->(%s:%d) (SYN(%t)FIN(%t)"+
+		", RST(%t), PSH(%t))\n",
+		ip4.SrcIP, tcp.SrcPort,
+		ip4.DstIP, tcp.DstPort, tcp.SYN, tcp.FIN, tcp.RST, tcp.PSH)
+	s := p.GetSession(int(tcp.SrcPort))
+	if s == nil {
+		s = newSession(ip4, tcp)
+		p.AddSession(int(tcp.SrcPort), s)
+	}
+	s.PacketSent++
+
+	//if len(sess.hostName) == 0 && len(tcp.Payload) > 10 {
+	//	buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
+	//	if req, err := http.ReadRequest(buf); err == nil {
+	//		log.Println("Host:->", req.Host)
+	//		sess.SetHostName(req.Host)
+	//	}
+	//}
+
+	ip4.SrcIP = ip4.DstIP
+	ip4.DstIP = net.ParseIP("10.8.0.2")
+	tcp.DstPort = 51414
+	tcp.SetNetworkLayerForChecksum(ip4)
+
+	b := gopacket.NewSerializeBuffer()
+	opt := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	if err := gopacket.SerializeLayers(b, opt, ip4, tcp); err != nil {
+		log.Println("Wrap Tcp to ip packet  err:", err)
+		return
+	}
+
+	data := b.Bytes()
+	log.Printf("After:%02x", data)
+
+	n, err := p.VpnWriteBack.Write(data)
+	if err != nil {
+		log.Println("tcp write to proxy err:", err)
+		return
+	}
+
+	if debug {
+		p := gopacket.NewPacket(data, layers.LayerTypeIPv4, gopacket.NoCopy)
+
+		if ipv4Layer := p.Layer(layers.LayerTypeIPv4); ipv4Layer != nil {
+			ipv4, _ := ipv4Layer.(*layers.IPv4)
+			log.Printf("IP %s->%s\n", ipv4.SrcIP, ipv4.DstIP)
+		}
+
+		if tcpLayer := p.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+			tcp, _ := tcpLayer.(*layers.TCP)
+			log.Printf("Port: %d->%d\n", tcp.SrcPort, tcp.DstPort)
+		}
+	}
+
+	log.Println(" write back to vpn success:", n, len(data))
+	log.Println("\n\n=====================================================================================================================")
 }

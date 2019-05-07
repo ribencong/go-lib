@@ -34,11 +34,9 @@ func NewDnsCache(protect ConnProtect) (*DnsProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	rawConn, err := conn.SyscallConn()
-	if err != nil {
-		return nil, err
-	}
-	if err := rawConn.Control(protect); err != nil {
+
+	if err := ProtectConn(conn, protect); err != nil {
+		log.Println("DNS Cache Protect Err:", err)
 		return nil, err
 	}
 
@@ -73,6 +71,7 @@ func (c *DnsProxy) Pop(id uint16) *QueryState {
 }
 
 func (c *DnsProxy) sendOut(dns *layers.DNS, ip4 *layers.IPv4, udp *layers.UDP) {
+	log.Println("	DNS :", dns.ID, string(dns.Questions[0].Name))
 
 	qs := &QueryState{
 		QueryTime:     time.Now(),

@@ -1,13 +1,13 @@
 package tun2socks
 
 import (
-	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"io"
 	"log"
 	"math"
 	"net"
+	"syscall"
 	"time"
 )
 
@@ -82,19 +82,16 @@ func (t2s *Tun2Socks) Reading() {
 		}
 
 		for _, typ := range decodedLayers {
-			fmt.Println("  Successfully decoded layer type", typ)
-
 			switch typ {
 			case layers.LayerTypeDNS:
 				if dns.QDCount == 0 {
 					continue
 				}
-
-				log.Println("	DNS :", dns.ID, string(dns.Questions[0].Name))
 				t2s.dnsProxy.sendOut(dns, ip4, udp)
 
 				break
 			case layers.LayerTypeTCP:
+				log.Printf("before:%02x", buf)
 				t2s.tcpProxy.ReceivePacket(ip4, tcp)
 				break
 			case layers.LayerTypeUDP:
@@ -179,4 +176,19 @@ func WrapIPPacketForTcp(srcIp, DstIp net.IP, srcPort, dstPort layers.TCPPort, pa
 		return nil
 	}
 	return b.Bytes()
+}
+
+func ProtectConn(conn syscall.Conn, protect ConnProtect) error {
+	rawConn, err := conn.SyscallConn()
+	if err != nil {
+		log.Println("Protect Err:", err)
+		return err
+	}
+
+	if err := rawConn.Control(protect); err != nil {
+		log.Println("Protect Err:", err)
+		return err
+	}
+
+	return nil
 }
