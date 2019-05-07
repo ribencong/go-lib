@@ -29,7 +29,7 @@ type DnsProxy struct {
 
 func NewDnsCache(protect ConnProtect) (*DnsProxy, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
-		Port: 51080,
+		Port: LocalProxyPort,
 	})
 	if err != nil {
 		return nil, err
@@ -95,7 +95,7 @@ func (c *DnsProxy) sendOut(dns *layers.DNS, ip4 *layers.IPv4, udp *layers.UDP) {
 }
 
 func (c *DnsProxy) DnsWaitResponse() {
-	log.Println("DNS Waiting Response......")
+	log.Println("DNS Waiting Response......", c.poxyConn.LocalAddr())
 	buff := make([]byte, math.MaxInt16)
 	defer c.poxyConn.Close()
 

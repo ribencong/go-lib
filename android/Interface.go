@@ -20,7 +20,7 @@ type VpnOutputStream interface {
 
 var _instance *tun2socks.Tun2Socks = nil
 
-func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, locSocks string) error {
+func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string) error {
 
 	if reader == nil || writer == nil || service == nil {
 		return fmt.Errorf("parameter invalid")
@@ -30,7 +30,7 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 		service.ByPass(int32(fd))
 	}
 
-	t2s, err := tun2socks.New(reader, writer, control, locSocks)
+	t2s, err := tun2socks.New(reader, writer, control, localIP)
 	_instance = t2s
 	return err
 }

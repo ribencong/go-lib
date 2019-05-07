@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	MTU = math.MaxInt16
+	MTU            = math.MaxInt16
+	LocalProxyPort = 51414
 )
 
 var (
@@ -27,36 +28,34 @@ func isPrivate(ip net.IP) bool {
 
 type ConnProtect func(fd uintptr)
 type Tun2Socks struct {
-	dnsProxy       *DnsProxy
-	tcpProxy       *TcpProxy
-	dataSource     VpnInputStream
-	vpnWriteBack   io.WriteCloser
-	localSocksAddr string
-	protect        ConnProtect
+	dnsProxy     *DnsProxy
+	tcpProxy     *TcpProxy
+	dataSource   VpnInputStream
+	vpnWriteBack io.WriteCloser
+	protect      ConnProtect
 }
 
 type VpnInputStream interface {
 	ReadBuff() []byte
 }
 
-func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, locSocks string) (*Tun2Socks, error) {
+func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, localIP string) (*Tun2Socks, error) {
 
 	dns, err := NewDnsCache(protect)
 	if err != nil {
 		return nil, err
 	}
 	dns.VpnWriteBack = writer
-	tcp, err := NewTcpProxy(locSocks, protect, writer)
+	tcp, err := NewTcpProxy(localIP, protect, writer)
 	if err != nil {
 		return nil, err
 	}
 	tsc := &Tun2Socks{
-		dnsProxy:       dns,
-		tcpProxy:       tcp,
-		dataSource:     reader,
-		vpnWriteBack:   writer,
-		localSocksAddr: locSocks,
-		protect:        protect,
+		dnsProxy:     dns,
+		tcpProxy:     tcp,
+		dataSource:   reader,
+		vpnWriteBack: writer,
+		protect:      protect,
 	}
 
 	return tsc, nil
@@ -91,7 +90,7 @@ func (t2s *Tun2Socks) Reading() {
 
 				break
 			case layers.LayerTypeTCP:
-				log.Printf("before:%02x", buf)
+				//log.Printf("before:%02x", buf)
 				t2s.tcpProxy.ReceivePacket(ip4, tcp)
 				break
 			case layers.LayerTypeUDP:
@@ -191,4 +190,22 @@ func ProtectConn(conn syscall.Conn, protect ConnProtect) error {
 	}
 
 	return nil
+}
+
+func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
+
+	tcp.SetNetworkLayerForChecksum(ip4)
+
+	b := gopacket.NewSerializeBuffer()
+	opt := gopacket.SerializeOptions{
+		FixLengths:       true,
+		ComputeChecksums: true,
+	}
+
+	if err := gopacket.SerializeLayers(b, opt, ip4, tcp); err != nil {
+		log.Println("Wrap Tcp to ip packet  err:", err)
+		return nil
+	}
+
+	return b.Bytes()
 }
