@@ -72,12 +72,12 @@ func (t2s *Tun2Socks) Reading() {
 			continue
 		}
 
-		//var tcp *layers.TCP = nil
-		//if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
-		//	tcp = tcpLayer.(*layers.TCP)
-		//	t2s.tcpProxy.ReceivePacket(ip4, tcp)
-		//	continue
-		//}
+		var tcp *layers.TCP = nil
+		if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+			tcp = tcpLayer.(*layers.TCP)
+			t2s.tcpProxy.ReceivePacket(ip4, tcp)
+			continue
+		}
 
 		var udp *layers.UDP = nil
 		if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
@@ -86,7 +86,7 @@ func (t2s *Tun2Socks) Reading() {
 			continue
 		}
 
-		//log.Println("Unsupported transport layer :", ip4.Protocol.String())
+		log.Println("Unsupported transport layer :", ip4.Protocol.String())
 	}
 }
 
