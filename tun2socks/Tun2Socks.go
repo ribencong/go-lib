@@ -12,27 +12,24 @@ import (
 )
 
 const (
-	MTU            = math.MaxInt16
-	LocalProxyPort = 51414
+	SysDialTimeOut    = time.Second * 2
+	UDPSessionTimeOut = time.Second * 80
+	MTU               = math.MaxInt16
+	LocalProxyPort    = 51414
 )
-
-var (
-	_, ip1, _ = net.ParseCIDR("10.0.0.0/8")
-	_, ip2, _ = net.ParseCIDR("172.16.0.0/12")
-	_, ip3, _ = net.ParseCIDR("192.168.0.0/24")
-)
-
-func isPrivate(ip net.IP) bool {
-	return ip1.Contains(ip) || ip2.Contains(ip) || ip3.Contains(ip)
-}
 
 type ConnProtect func(fd uintptr)
+
+var (
+	SysConnProtector ConnProtect    = nil
+	SysTunWriteBack  io.WriteCloser = nil
+	SysTunLocalIP                   = net.ParseIP("10.8.0.2")
+)
+
 type Tun2Socks struct {
-	dnsProxy     *DnsProxy
-	tcpProxy     *TcpProxy
-	dataSource   VpnInputStream
-	vpnWriteBack io.WriteCloser
-	protect      ConnProtect
+	udpProxy   *UdpProxy
+	tcpProxy   *TcpProxy
+	dataSource VpnInputStream
 }
 
 type VpnInputStream interface {
@@ -41,21 +38,18 @@ type VpnInputStream interface {
 
 func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, localIP string) (*Tun2Socks, error) {
 
-	dns, err := NewDnsCache(protect)
-	if err != nil {
-		return nil, err
-	}
-	dns.VpnWriteBack = writer
-	tcp, err := NewTcpProxy(localIP, protect, writer)
+	SysConnProtector = protect
+	SysTunWriteBack = writer
+	SysTunLocalIP = net.ParseIP(localIP)
+
+	tcp, err := NewTcpProxy()
 	if err != nil {
 		return nil, err
 	}
 	tsc := &Tun2Socks{
-		dnsProxy:     dns,
-		tcpProxy:     tcp,
-		dataSource:   reader,
-		vpnWriteBack: writer,
-		protect:      protect,
+		udpProxy:   NewUdpProxy(),
+		tcpProxy:   tcp,
+		dataSource: reader,
 	}
 
 	return tsc, nil
@@ -64,58 +58,42 @@ func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, loca
 func (t2s *Tun2Socks) Reading() {
 	for {
 		buf := t2s.dataSource.ReadBuff()
-
 		if len(buf) == 0 {
 			time.Sleep(time.Millisecond * 100)
 			continue
 		}
+		var ip4 *layers.IPv4 = nil
 
-		ip4 := &layers.IPv4{}
-		tcp := &layers.TCP{}
-		udp := &layers.UDP{}
-		dns := &layers.DNS{}
-		parser := gopacket.NewDecodingLayerParser(layers.LayerTypeIPv4, ip4, tcp, udp, dns)
-		decodedLayers := make([]gopacket.LayerType, 0, 4)
-		err := parser.DecodeLayers(buf, &decodedLayers)
-		for _, typ := range decodedLayers {
-			log.Println("  Successfully decoded layer type", typ)
-			switch typ {
-			case layers.LayerTypeDNS:
-				if dns.QDCount == 0 {
-					continue
-				}
-				t2s.dnsProxy.sendOut(dns, ip4, udp)
-
-				break
-			case layers.LayerTypeTCP:
-				//log.Printf("before:%02x", buf)
-				t2s.tcpProxy.ReceivePacket(ip4, tcp)
-				break
-			case layers.LayerTypeUDP:
-				break
-			case layers.LayerTypeIPv4:
-				if !ip4.DstIP.IsGlobalUnicast() || isPrivate(ip4.DstIP) {
-					log.Println("Warning-------->Private data:", ip4.DstIP)
-					continue
-				}
-				if ip4.Flags&0x1 != 0 || ip4.FragOffset != 0 {
-					log.Println("Warning-------->Fragment data:", ip4.DstIP)
-					continue
-				}
-				break
-			}
-		}
-		if err != nil {
-			log.Println("  Error encountered:", err)
+		packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
+		if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
+			ip4 = ip4Layer.(*layers.IPv4)
+		} else {
+			log.Println("Unsupported network layer :")
 			continue
 		}
+
+		//var tcp *layers.TCP = nil
+		//if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+		//	tcp = tcpLayer.(*layers.TCP)
+		//	t2s.tcpProxy.ReceivePacket(ip4, tcp)
+		//	continue
+		//}
+
+		var udp *layers.UDP = nil
+		if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+			udp = udpLayer.(*layers.UDP)
+			t2s.udpProxy.ReceivePacket(ip4, udp)
+			continue
+		}
+
+		//log.Println("Unsupported transport layer :", ip4.Protocol.String())
 	}
 }
 
 func (t2s *Tun2Socks) Close() {
 }
 
-func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, payload []byte) []byte {
+func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byte) []byte {
 
 	ip4 := &layers.IPv4{
 		Version:  4,
@@ -125,8 +103,8 @@ func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort layers.UDPPort, pa
 		Protocol: layers.IPProtocolUDP,
 	}
 	udp := &layers.UDP{
-		SrcPort: srcPort,
-		DstPort: dstPort,
+		SrcPort: layers.UDPPort(srcPort),
+		DstPort: layers.UDPPort(dstPort),
 	}
 
 	if err := udp.SetNetworkLayerForChecksum(ip4); err != nil {
@@ -179,14 +157,14 @@ func WrapIPPacketForTcp(srcIp, DstIp net.IP, srcPort, dstPort layers.TCPPort, pa
 	return b.Bytes()
 }
 
-func ProtectConn(conn syscall.Conn, protect ConnProtect) error {
+func ProtectConn(conn syscall.Conn) error {
 	rawConn, err := conn.SyscallConn()
 	if err != nil {
 		log.Println("Protect Err:", err)
 		return err
 	}
 
-	if err := rawConn.Control(protect); err != nil {
+	if err := rawConn.Control(SysConnProtector); err != nil {
 		log.Println("Protect Err:", err)
 		return err
 	}

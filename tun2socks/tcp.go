@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/google/gopacket/layers"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -50,13 +49,10 @@ func (s *Session) SetHostName(host string) {
 type TcpProxy struct {
 	sync.RWMutex
 	tcpTransfer  *net.TCPListener
-	tunLocIP     net.IP
-	protect      ConnProtect
-	VpnWriteBack io.WriteCloser
 	SessionCache map[int]*Session
 }
 
-func NewTcpProxy(localIP string, protect ConnProtect, writer io.WriteCloser) (*TcpProxy, error) {
+func NewTcpProxy() (*TcpProxy, error) {
 	l, e := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: LocalProxyPort,
 	})
@@ -66,9 +62,6 @@ func NewTcpProxy(localIP string, protect ConnProtect, writer io.WriteCloser) (*T
 
 	p := &TcpProxy{
 		tcpTransfer:  l,
-		tunLocIP:     net.ParseIP(localIP),
-		protect:      protect,
-		VpnWriteBack: writer,
 		SessionCache: make(map[int]*Session),
 	}
 
@@ -78,9 +71,10 @@ func NewTcpProxy(localIP string, protect ConnProtect, writer io.WriteCloser) (*T
 }
 func (p *TcpProxy) Transfer() {
 
+	defer log.Println("Tcp Proxy Edn>>>>>>", p.tcpTransfer.Addr())
 	defer p.tcpTransfer.Close()
 
-	log.Println("Tcp Transfer start......", p.tcpTransfer.Addr())
+	log.Println("Tcp Proxy start......", p.tcpTransfer.Addr())
 
 	for {
 		conn, err := p.tcpTransfer.Accept()
@@ -172,7 +166,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	}
 
 	ip4.SrcIP = ip4.DstIP
-	ip4.DstIP = p.tunLocIP
+	ip4.DstIP = SysTunLocalIP
 	tcp.DstPort = LocalProxyPort
 
 	data := ChangePacket(ip4, tcp)
@@ -182,7 +176,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	log.Println("session:", s.ToString())
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
-	if _, err := p.VpnWriteBack.Write(data); err != nil {
+	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
 		return
 	}
@@ -199,7 +193,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 	}
 
 	ip4.SrcIP = ip4.DstIP
-	ip4.DstIP = p.tunLocIP
+	ip4.DstIP = SysTunLocalIP
 	tcp.SrcPort = layers.TCPPort(s.RemotePort)
 	data := ChangePacket(ip4, tcp)
 	s.BytesRec += len(tcp.Payload)
@@ -208,18 +202,16 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 	log.Println("session:", s.ToString())
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
-	if _, err := p.VpnWriteBack.Write(data); err != nil {
+	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)
 		return
 	}
 }
 
 func (p *TcpProxy) ReceivePacket(ip4 *layers.IPv4, tcp *layers.TCP) {
-
 	if int(tcp.SrcPort) == LocalProxyPort {
 		p.proxy2Tun(ip4, tcp)
 		return
 	}
-
 	p.tun2Proxy(ip4, tcp)
 }

@@ -27,7 +27,7 @@ type DnsProxy struct {
 	cache        map[uint16]*QueryState
 }
 
-func NewDnsCache(protect ConnProtect) (*DnsProxy, error) {
+func NewDnsCache() (*DnsProxy, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: LocalProxyPort,
 	})
@@ -35,7 +35,7 @@ func NewDnsCache(protect ConnProtect) (*DnsProxy, error) {
 		return nil, err
 	}
 
-	if err := ProtectConn(conn, protect); err != nil {
+	if err := ProtectConn(conn); err != nil {
 		log.Println("DNS Cache Protect Err:", err)
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (c *DnsProxy) DnsWaitResponse() {
 			continue
 		}
 
-		data := WrapIPPacketForUdp(qs.ClientIP, qs.RemoteIp, qs.ClientPort, qs.RemotePort, buff[:n])
+		data := WrapIPPacketForUdp(qs.ClientIP, qs.RemoteIp, int(qs.ClientPort), int(qs.RemotePort), buff[:n])
 		if data == nil {
 			log.Println("make dns ip packet failed:", dns.ID)
 			continue
