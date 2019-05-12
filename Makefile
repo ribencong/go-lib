@@ -2,14 +2,14 @@ BINDIR=bin
 
 #.PHONY: pbs
 
-all: lib test
+all: m test
 #
 #pbs:
 #	cd pbs/ && $(MAKE)
 #
 test:
 	 go build -ldflags '-w -s' -o $(BINDIR)/ctest
-lib:
+m:
 	@if [ -z "$(shell which go)" ]; then echo "error: Go must be installed (golang.org)."; exit 1; fi
 	CGO_CFLAGS=-mmacosx-version-min=10.11 \
 	CGO_LDFLAGS=-mmacosx-version-min=10.11 \

@@ -168,7 +168,7 @@ func PrintFlow(pre string, ip4 *layers.IPv4, tcp *layers.TCP) {
 
 func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
-	PrintFlow("-=->tun2Proxy", ip4, tcp)
+	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
 	s := p.GetSession(int(tcp.SrcPort))
 	if s == nil {
@@ -194,8 +194,8 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	s.BytesSent += len(tcp.Payload)
 
 	//log.Printf("After:%02x", data)
-	log.Println("session:", len(tcp.Payload), s.ToString())
-	PrintFlow("-=->tun2Proxy", ip4, tcp)
+	//log.Println("session:", len(tcp.Payload), s.ToString())
+	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
 	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
@@ -204,7 +204,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 }
 
 func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
-	PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 	s := p.GetSession(int(tcp.DstPort))
 
 	if s == nil {
@@ -221,7 +221,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//log.Printf("After:%02x", data)
 	log.Println("session:", s.ToString())
-	PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
 	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)

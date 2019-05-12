@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ribencong/go-youPipe/service/client"
+	"github.com/ribencong/go-lib/client"
 	"testing"
 )
 

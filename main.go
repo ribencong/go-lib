@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/ribencong/go-youPipe/service/client"
+	"github.com/ribencong/go-lib/client"
 	"golang.org/x/net/proxy"
 	"net"
 	"os"

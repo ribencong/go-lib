@@ -4,9 +4,9 @@ import "C"
 import (
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/ribencong/go-lib/client"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
-	"github.com/ribencong/go-youPipe/service/client"
 )
 
 var proxyClient *client.Client = nil
