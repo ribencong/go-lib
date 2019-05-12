@@ -182,7 +182,7 @@ func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
 		ComputeChecksums: true,
 	}
 
-	if err := gopacket.SerializeLayers(b, opt, ip4, tcp); err != nil {
+	if err := gopacket.SerializeLayers(b, opt, ip4, tcp, gopacket.Payload(tcp.Payload)); err != nil {
 		log.Println("Wrap Tcp to ip packet  err:", err)
 		return nil
 	}

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -82,26 +83,46 @@ func (p *TcpProxy) Transfer() {
 			log.Println("Accept:", err)
 			return
 		}
-
 		log.Println("Accept:", conn.RemoteAddr(), conn.LocalAddr())
-		port := conn.RemoteAddr().(*net.TCPAddr).Port
-		s := p.GetSession(port)
-		if s == nil {
-			log.Println("Can't proxy this one:", conn.RemoteAddr())
-			conn.Close()
-			continue
-		}
-
-		log.Println("New conn for session:", s.ToString())
-
-		pipe := &LeftPipe{
-			tgtAddr:  fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort),
-			TcpProxy: p,
-			leftConn: conn.(*net.TCPConn),
-		}
-
-		go pipe.Working()
+		go p.process(conn)
 	}
+}
+
+func (p *TcpProxy) process(conn net.Conn) {
+	port := conn.RemoteAddr().(*net.TCPAddr).Port
+	s := p.GetSession(port)
+	if s == nil {
+		log.Println("Can't proxy this one:", conn.RemoteAddr())
+		conn.Close()
+		return
+	}
+
+	log.Println("New conn for session:", s.ToString())
+
+	targetAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
+	d := &net.Dialer{
+		Timeout: SysDialTimeOut,
+		Control: func(network, address string, c syscall.RawConn) error {
+			return c.Control(SysConnProtector)
+		},
+	}
+	c, e := d.Dial("tcp", targetAddr)
+	if e != nil {
+		log.Println("Dial remote err:", e)
+		return
+	}
+	log.Printf("pipe dial success: %s->%s:", c.LocalAddr(), c.RemoteAddr())
+
+	pipe := &LeftPipe{
+		TcpProxy:  p,
+		leftConn:  conn.(*net.TCPConn),
+		rightConn: c.(*net.TCPConn),
+	}
+	pipe.leftConn.SetKeepAlive(true)
+	pipe.rightConn.SetKeepAlive(true)
+
+	go pipe.Left2Right()
+	pipe.Right2Left()
 }
 
 func (p *TcpProxy) GetSession(key int) *Session {
@@ -173,8 +194,8 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	s.BytesSent += len(tcp.Payload)
 
 	//log.Printf("After:%02x", data)
-	log.Println("session:", s.ToString())
-	//PrintFlow("-=->tun2Proxy", ip4, tcp)
+	log.Println("session:", len(tcp.Payload), s.ToString())
+	PrintFlow("-=->tun2Proxy", ip4, tcp)
 
 	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
@@ -200,7 +221,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//log.Printf("After:%02x", data)
 	log.Println("session:", s.ToString())
-	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
 	if _, err := SysTunWriteBack.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)
