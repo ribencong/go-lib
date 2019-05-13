@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/google/gopacket/layers"
+	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"sync"
@@ -13,21 +15,40 @@ import (
 	"time"
 )
 
+type ProxyPipe struct {
+	Left  *net.TCPConn
+	Right *net.TCPConn
+}
+
+func (pp *ProxyPipe) Right2Left() {
+	no, err := io.Copy(pp.Left, pp.Right)
+	log.Println("Proxy pipe right 2 left finished:", no, err)
+}
+
+func (pp *ProxyPipe) WriteTunnel(buf []byte) {
+	if _, e := pp.Right.Write(buf); e != nil {
+		log.Println("Proxy pipe left 2 right err:", e)
+		pp.Close()
+	}
+}
+
+func (pp *ProxyPipe) Close() {
+
+}
+
 type Session struct {
 	NeedProxy  bool
+	Pipe       *ProxyPipe
 	hostName   string
-	PacketSent int
-	BytesSent  int
-	BytesRec   int
 	UPTime     time.Time
 	RemoteIP   net.IP
 	RemotePort int
 }
 
 func (s *Session) ToString() string {
-	return fmt.Sprintf("(%s:%t)%s:%d p(%d) b(%d) t=%s",
+	return fmt.Sprintf("(%s:%t)%s:%d t=%s",
 		s.hostName, s.NeedProxy, s.RemoteIP, s.RemotePort,
-		s.PacketSent, s.BytesSent, s.UPTime.Format("2006-01-02 15:04:05"))
+		s.UPTime.Format("2006-01-02 15:04:05"))
 }
 
 func newSession(ip4 *layers.IPv4, tcp *layers.TCP) *Session {
@@ -35,22 +56,15 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP) *Session {
 		UPTime:     time.Now(),
 		RemoteIP:   ip4.DstIP,
 		RemotePort: int(tcp.DstPort),
-		NeedProxy:  SysConfig.NeedProxy(ip4.DstIP.String()),
 	}
 	return s
-}
-
-func (s *Session) SetHostName(host string) {
-	s.hostName = host
-	if !s.NeedProxy {
-		s.NeedProxy = SysConfig.NeedProxy(host)
-	}
 }
 
 type TcpProxy struct {
 	sync.RWMutex
 	tcpTransfer  *net.TCPListener
 	SessionCache map[int]*Session
+	RightConn    map[string]*net.TCPConn
 }
 
 func NewTcpProxy() (*TcpProxy, error) {
@@ -64,12 +78,14 @@ func NewTcpProxy() (*TcpProxy, error) {
 	p := &TcpProxy{
 		tcpTransfer:  l,
 		SessionCache: make(map[int]*Session),
+		RightConn:    make(map[string]*net.TCPConn),
 	}
 
 	go p.Transfer()
 
 	return p, nil
 }
+
 func (p *TcpProxy) Transfer() {
 
 	defer log.Println("Tcp Proxy Edn>>>>>>", p.tcpTransfer.Addr())
@@ -89,40 +105,61 @@ func (p *TcpProxy) Transfer() {
 }
 
 func (p *TcpProxy) process(conn net.Conn) {
-	port := conn.RemoteAddr().(*net.TCPAddr).Port
+	leftConn := conn.(*net.TCPConn)
+	leftConn.SetKeepAlive(true)
+
+	defer leftConn.Close()
+
+	port := leftConn.RemoteAddr().(*net.TCPAddr).Port
 	s := p.GetSession(port)
 	if s == nil {
-		log.Println("Can't proxy this one:", conn.RemoteAddr())
-		conn.Close()
+		log.Println("Can't proxy this one:", leftConn.RemoteAddr())
 		return
 	}
 
 	log.Println("New conn for session:", s.ToString())
 
-	targetAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
-	d := &net.Dialer{
-		Timeout: SysDialTimeOut,
-		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(SysConfig.Protector)
-		},
-	}
-	c, e := d.Dial("tcp", targetAddr)
-	if e != nil {
-		log.Println("Dial remote err:", e)
-		return
-	}
-	log.Printf("pipe dial success: %s->%s:", c.LocalAddr(), c.RemoteAddr())
+	tgtAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
+	buff := make([]byte, math.MaxInt16)
 
-	pipe := &LeftPipe{
-		TcpProxy:  p,
-		leftConn:  conn.(*net.TCPConn),
-		rightConn: c.(*net.TCPConn),
-	}
-	pipe.leftConn.SetKeepAlive(true)
-	pipe.rightConn.SetKeepAlive(true)
+	for {
+		n, e := leftConn.Read(buff)
+		if e != nil {
+			log.Println("read from left conn err:", e)
+			return
+		}
 
-	go pipe.Left2Right()
-	pipe.Right2Left()
+		if s.Pipe == nil {
+
+			if s.NeedProxy {
+				print("This one need proxy:", s.ToString())
+			}
+
+			d := &net.Dialer{
+				Timeout: SysDialTimeOut,
+				Control: func(network, address string, c syscall.RawConn) error {
+					return c.Control(SysConfig.Protector)
+				},
+			}
+			c, e := d.Dial("tcp", tgtAddr)
+			if e != nil {
+				log.Println("Dial remote err:", e)
+				return
+			}
+			rightConn := c.(*net.TCPConn)
+			rightConn.SetKeepAlive(true)
+			log.Printf("Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
+
+			s.Pipe = &ProxyPipe{
+				Left:  leftConn,
+				Right: rightConn,
+			}
+			go s.Pipe.Right2Left()
+		}
+
+		s.Pipe.WriteTunnel(buff[:n])
+	}
+
 }
 
 func (p *TcpProxy) GetSession(key int) *Session {
@@ -176,13 +213,12 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 		p.AddSession(int(tcp.SrcPort), s)
 	}
 
-	s.PacketSent++
-
 	if len(s.hostName) == 0 && len(tcp.Payload) > 10 {
 		buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
 		if req, err := http.ReadRequest(buf); err == nil {
-			log.Println("Host:->", req.Host)
-			s.SetHostName(req.Host)
+			s.hostName = req.Host
+			s.NeedProxy = SysConfig.NeedProxy(s.hostName)
+			log.Printf("Host:[%s]->%t", req.Host, s.NeedProxy)
 		}
 	}
 
@@ -191,8 +227,6 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	tcp.DstPort = LocalProxyPort
 
 	data := ChangePacket(ip4, tcp)
-	s.BytesSent += len(tcp.Payload)
-
 	//log.Printf("After:%02x", data)
 	//log.Println("session:", len(tcp.Payload), s.ToString())
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
@@ -217,10 +251,9 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 	ip4.DstIP = SysConfig.TunLocalIP
 	tcp.SrcPort = layers.TCPPort(s.RemotePort)
 	data := ChangePacket(ip4, tcp)
-	s.BytesRec += len(tcp.Payload)
 
 	//log.Printf("After:%02x", data)
-	log.Println("session:", s.ToString())
+	//log.Println("session:", s.ToString())
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
 	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {

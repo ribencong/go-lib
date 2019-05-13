@@ -114,37 +114,6 @@ func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byt
 
 	return b.Bytes()
 }
-func WrapIPPacketForTcp(srcIp, DstIp net.IP, srcPort, dstPort layers.TCPPort, payload []byte) []byte {
-	ip4 := &layers.IPv4{
-		Version:  4,
-		TTL:      64,
-		SrcIP:    srcIp,
-		DstIP:    DstIp,
-		Protocol: layers.IPProtocolTCP,
-	}
-
-	tcp := &layers.TCP{
-		SrcPort: srcPort,
-		DstPort: dstPort,
-	}
-
-	if err := tcp.SetNetworkLayerForChecksum(ip4); err != nil {
-		log.Println("Tcp Wrap ip packet check sum err:", err)
-		return nil
-	}
-
-	b := gopacket.NewSerializeBuffer()
-	opt := gopacket.SerializeOptions{
-		FixLengths:       true,
-		ComputeChecksums: true,
-	}
-
-	if err := gopacket.SerializeLayers(b, opt, ip4, tcp, gopacket.Payload(payload)); err != nil {
-		log.Println("Wrap Tcp to ip packet  err:", err)
-		return nil
-	}
-	return b.Bytes()
-}
 
 func ProtectConn(conn syscall.Conn) error {
 	rawConn, err := conn.SyscallConn()

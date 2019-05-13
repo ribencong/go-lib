@@ -47,6 +47,7 @@ func (c *PacConfig) NeedProxy(target string) bool {
 	}
 
 	if _, ok := c.PacCache[domain]; ok {
+		log.Printf("Hit success:%s->%s", target, domain)
 		return true
 	}
 
@@ -54,6 +55,7 @@ func (c *PacConfig) NeedProxy(target string) bool {
 }
 
 func (c *PacConfig) RefreshRemoteGFWList() (string, error) {
+
 	resp, err := http.Get(GFListUrl)
 	if err != nil {
 		fmt.Println(err)
@@ -78,10 +80,12 @@ func (c *PacConfig) RefreshRemoteGFWList() (string, error) {
 
 func (c *PacConfig) LoadGFW(domains string) {
 	domainArr := strings.Split(domains, "\n")
+	log.Println("domainArr Len :", len(domainArr))
+
 	c.Lock()
 	defer c.Unlock()
 	for _, dom := range domainArr {
 		c.PacCache[dom] = struct{}{}
-		log.Println("LoadGFW :", dom)
+		//println("LoadGFW :", idx, dom)
 	}
 }

@@ -34,9 +34,6 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 	tun2socks.SysConfig.Protector = control
 	tun2socks.SysConfig.TunLocalIP = net.ParseIP(localIP)
 	tun2socks.SysConfig.TunWriteBack = writer
-	if len(GFWList) == 0 {
-		GFWList, _ = tun2socks.SysConfig.RefreshRemoteGFWList()
-	}
 	tun2socks.SysConfig.LoadGFW(GFWList)
 
 	t2s, err := tun2socks.New(reader)
