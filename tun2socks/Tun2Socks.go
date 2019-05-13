@@ -3,7 +3,6 @@ package tun2socks
 import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"io"
 	"log"
 	"math"
 	"net"
@@ -20,12 +19,6 @@ const (
 
 type ConnProtect func(fd uintptr)
 
-var (
-	SysConnProtector ConnProtect    = nil
-	SysTunWriteBack  io.WriteCloser = nil
-	SysTunLocalIP                   = net.ParseIP("10.8.0.2")
-)
-
 type Tun2Socks struct {
 	udpProxy   *UdpProxy
 	tcpProxy   *TcpProxy
@@ -36,11 +29,7 @@ type VpnInputStream interface {
 	ReadBuff() []byte
 }
 
-func New(reader VpnInputStream, writer io.WriteCloser, protect ConnProtect, localIP string) (*Tun2Socks, error) {
-
-	SysConnProtector = protect
-	SysTunWriteBack = writer
-	SysTunLocalIP = net.ParseIP(localIP)
+func New(reader VpnInputStream) (*Tun2Socks, error) {
 
 	tcp, err := NewTcpProxy()
 	if err != nil {
@@ -164,7 +153,7 @@ func ProtectConn(conn syscall.Conn) error {
 		return err
 	}
 
-	if err := rawConn.Control(SysConnProtector); err != nil {
+	if err := rawConn.Control(SysConfig.Protector); err != nil {
 		log.Println("Protect Err:", err)
 		return err
 	}

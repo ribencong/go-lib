@@ -41,7 +41,7 @@ func (s *UdpSession) WaitingIn() {
 		rAddr := s.RemoteAddr().(*net.UDPAddr)
 		data := WrapIPPacketForUdp(rAddr.IP, s.SrcIP, rAddr.Port, s.SrcPort, buf[:n])
 
-		if _, e := SysTunWriteBack.Write(data); e != nil {
+		if _, e := SysConfig.TunWriteBack.Write(data); e != nil {
 			log.Printf("Udp session(%s) write to tun err:%s", s.ID, e)
 			continue
 		}
@@ -104,7 +104,7 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 	d := &net.Dialer{
 		Timeout: SysDialTimeOut,
 		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(SysConnProtector)
+			return c.Control(SysConfig.Protector)
 		},
 	}
 

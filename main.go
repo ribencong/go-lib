@@ -8,7 +8,10 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/ribencong/go-lib/client"
 	"golang.org/x/net/proxy"
+	"golang.org/x/net/publicsuffix"
+	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"time"
 )
@@ -22,7 +25,82 @@ var conf = &client.Config{
 }
 
 func main() {
-	test3()
+	test5()
+}
+
+func test5() {
+	domains := []string{
+		"192.168.0.1",
+		"amazon.co.uk",
+		"books.amazon.co.uk",
+		"www.books.amazon.co.uk",
+		"amazon.com",
+		"",
+		"example0.debian.net",
+		"example1.debian.org",
+		"",
+		"golang.dev",
+		"golang.net",
+		"play.golang.org",
+		"gophers.in.space.museum",
+		"",
+		"0emm.com",
+		"a.0emm.com",
+		"b.c.d.0emm.com",
+		"",
+		"there.is.no.such-tld",
+		"",
+		// Examples from the PublicSuffix function's documentation.
+		"foo.org",
+		"foo.co.uk",
+		"foo.dyndns.org",
+		"foo.blogspot.co.uk",
+		"cromulent",
+	}
+
+	for _, domain := range domains {
+		if domain == "" {
+			fmt.Println(">")
+			continue
+		}
+
+		eTLD, _ := publicsuffix.EffectiveTLDPlusOne(domain)
+		fmt.Printf("> %24s%16s \n", domain, eTLD)
+		//eTLD, icann := publicsuffix.PublicSuffix(domain)
+
+		// Only ICANN managed domains can have a single label. Privately
+		// managed domains must have multiple labels.
+		//manager := "Unmanaged"
+		//if icann {
+		//	manager = "ICANN Managed"
+		//} else if strings.IndexByte(eTLD, '.') >= 0 {
+		//	manager = "Privately Managed"
+		//}
+		//
+		//fmt.Printf("> %24s%16s  is  %s\n", domain, eTLD, manager)
+	}
+}
+
+func test4() {
+	resp, err := http.Get("https://raw.githubusercontent.com/youpipe/ypctorrent/master/gfw.torrent")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+
+	buf, e := ioutil.ReadAll(resp.Body)
+	if e != nil {
+		fmt.Println("Update GFW list err:", e)
+		return
+	}
+
+	domains, err := base64.StdEncoding.DecodeString(string(buf))
+	if err != nil {
+		fmt.Println("Update GFW list err:", e)
+		return
+	}
+	fmt.Println(string(domains))
 }
 
 func test3() {

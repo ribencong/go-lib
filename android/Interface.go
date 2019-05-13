@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ribencong/go-lib/tun2socks"
 	"io"
+	"net"
 )
 
 type VpnService interface {
@@ -20,7 +21,7 @@ type VpnOutputStream interface {
 
 var _instance *tun2socks.Tun2Socks = nil
 
-func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string) error {
+func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string, GFWList string) error {
 
 	if reader == nil || writer == nil || service == nil {
 		return fmt.Errorf("parameter invalid")
@@ -30,7 +31,15 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 		service.ByPass(int32(fd))
 	}
 
-	t2s, err := tun2socks.New(reader, writer, control, localIP)
+	tun2socks.SysConfig.Protector = control
+	tun2socks.SysConfig.TunLocalIP = net.ParseIP(localIP)
+	tun2socks.SysConfig.TunWriteBack = writer
+	if len(GFWList) == 0 {
+		GFWList, _ = tun2socks.SysConfig.RefreshRemoteGFWList()
+	}
+	tun2socks.SysConfig.LoadGFW(GFWList)
+
+	t2s, err := tun2socks.New(reader)
 	_instance = t2s
 	return err
 }
@@ -41,4 +50,12 @@ func Run() {
 
 func StopVpn() {
 	_instance.Close()
+}
+
+func LoadGFWList() string {
+	str, e := tun2socks.SysConfig.RefreshRemoteGFWList()
+	if e != nil {
+		return ""
+	}
+	return str
 }

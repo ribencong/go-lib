@@ -103,7 +103,7 @@ func (p *TcpProxy) process(conn net.Conn) {
 	d := &net.Dialer{
 		Timeout: SysDialTimeOut,
 		Control: func(network, address string, c syscall.RawConn) error {
-			return c.Control(SysConnProtector)
+			return c.Control(SysConfig.Protector)
 		},
 	}
 	c, e := d.Dial("tcp", targetAddr)
@@ -187,7 +187,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	}
 
 	ip4.SrcIP = ip4.DstIP
-	ip4.DstIP = SysTunLocalIP
+	ip4.DstIP = SysConfig.TunLocalIP
 	tcp.DstPort = LocalProxyPort
 
 	data := ChangePacket(ip4, tcp)
@@ -197,7 +197,7 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	//log.Println("session:", len(tcp.Payload), s.ToString())
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
-	if _, err := SysTunWriteBack.Write(data); err != nil {
+	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
 		return
 	}
@@ -214,7 +214,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 	}
 
 	ip4.SrcIP = ip4.DstIP
-	ip4.DstIP = SysTunLocalIP
+	ip4.DstIP = SysConfig.TunLocalIP
 	tcp.SrcPort = layers.TCPPort(s.RemotePort)
 	data := ChangePacket(ip4, tcp)
 	s.BytesRec += len(tcp.Payload)
@@ -223,7 +223,7 @@ func (p *TcpProxy) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
 	log.Println("session:", s.ToString())
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
-	if _, err := SysTunWriteBack.Write(data); err != nil {
+	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)
 		return
 	}
