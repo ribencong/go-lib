@@ -34,7 +34,7 @@ func (pp *ProxyPipe) Close() {
 }
 
 type Session struct {
-	NeedProxy  bool
+	ByPass     bool
 	Pipe       *ProxyPipe
 	UPTime     time.Time
 	RemoteIP   net.IP
@@ -42,7 +42,7 @@ type Session struct {
 }
 
 func (s *Session) ToString() string {
-	return fmt.Sprintf("(%t)%s:%d t=%s", s.NeedProxy, s.RemoteIP, s.RemotePort,
+	return fmt.Sprintf("(%t)%s:%d t=%s", s.ByPass, s.RemoteIP, s.RemotePort,
 		s.UPTime.Format("2006-01-02 15:04:05"))
 }
 
@@ -51,7 +51,7 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP) *Session {
 		UPTime:     time.Now(),
 		RemoteIP:   ip4.DstIP,
 		RemotePort: int(tcp.DstPort),
-		NeedProxy:  SysConfig.NeedProxy(ip4.DstIP),
+		ByPass:     SysConfig.ByPass(ip4.DstIP),
 	}
 
 	return s
@@ -128,8 +128,8 @@ func (p *TcpProxy) process(conn net.Conn) {
 
 		if s.Pipe == nil {
 
-			if s.NeedProxy {
-				print("This one need proxy:", s.ToString())
+			if s.ByPass {
+				print("This one no need proxy:", s.ToString())
 			}
 
 			d := &net.Dialer{

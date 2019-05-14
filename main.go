@@ -28,24 +28,27 @@ var conf = &client.Config{
 func main() {
 	test8()
 }
+func test9() {
+	tt, err := base64.StdEncoding.DecodeString("")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(tt))
+}
 
 func test8() {
-	ip, subNet, _ := net.ParseCIDR("42.194.12.0/22")
-	fmt.Println(ip)
-	fmt.Println(subNet.IP, subNet.Mask)
+	ip, subNet, _ := net.ParseCIDR("58.248.0.0/13")
+	mask := subNet.Mask
 
-	fmt.Println(subNet.Contains(net.ParseIP("42.194.12.1")))
-	fmt.Println(subNet.Contains(net.ParseIP("42.194.13.1")))
-	fmt.Println(subNet.Contains(net.ParseIP("42.194.14.1")))
-	fmt.Println(subNet.Contains(net.ParseIP("42.194.15.1")))
-	fmt.Println(subNet.Contains(net.ParseIP("42.194.16.1")))
-	fmt.Println(net.ParseIP("42.194.15.222").Mask(subNet.Mask))
+	srcIP := net.ParseIP("58.251.82.180")
+	maskIP := srcIP.Mask(mask)
 
-	fmt.Println(subNet.Mask)
+	fmt.Println(ip.String(), maskIP.String())
+	fmt.Println(string(maskIP), string(ip), maskIP.String() == ip.String(), subNet.Contains(srcIP))
 }
 
 func test7() {
-	str := ""
+	str := "zoFqdxIrIwcRWPyALfi7yCVvJagI6hE86K3KNc0ioPxsSJWqYa2A5QWTxfO8fUq5GyDJeCfOjnyNxZsFFmav2KE4z5FsoMeUIbNTjwiFMqeqzObr1JKJi+l/wybgKEfZ0ijbMGaynfEIWbFPlIKxYc1YkZdHcKzeG6yWNxXCtXEK1JJ7pbo9DRcaOWuj2xFBD/Dnasizc7fJOPnPy2JROHmlDyajxz/UavGjFNAmBh5iegAisNexrSoGihG/r5GiY9xP1wCP860nC3RWN6Sxzbb7fCZJvqKuXuPCm8d6KjyrXV7v0PPlrhFfekdviE0dg4f2h/ZGN4dZ4rq7N+qxCw=="
 	tt, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		panic(err)

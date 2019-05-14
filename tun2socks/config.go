@@ -26,7 +26,7 @@ type PacConfig struct {
 	byPass       *byPassIps
 }
 
-func (c *PacConfig) NeedProxy(ip net.IP) bool {
+func (c *PacConfig) ByPass(ip net.IP) bool {
 	if c.IsGlobal {
 		return true
 	}
@@ -41,4 +41,6 @@ func (c *PacConfig) ParseByPassIP(domains string) {
 	for _, cidr := range array {
 		c.byPass.Cache(cidr)
 	}
+
+	log.Println("Masks Len :", len(c.byPass.Masks))
 }
