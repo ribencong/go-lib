@@ -30,16 +30,18 @@ func main() {
 }
 
 func test8() {
-	ipMask := net.CIDRMask(16, 32)
-	fmt.Println(ipMask)
+	ip, subNet, _ := net.ParseCIDR("42.194.12.0/22")
+	fmt.Println(ip)
+	fmt.Println(subNet.IP, subNet.Mask)
 
-	subNet := &net.IPNet{
-		IP:   net.ParseIP("223.201.0.0"),
-		Mask: ipMask,
-	}
-	fmt.Println(subNet.Contains(net.ParseIP("223.201.1.123")))
-	fmt.Println(subNet.Contains(net.ParseIP("223.202.1.2")))
-	fmt.Println(subNet.Contains(net.ParseIP("223.201.123.255")))
+	fmt.Println(subNet.Contains(net.ParseIP("42.194.12.1")))
+	fmt.Println(subNet.Contains(net.ParseIP("42.194.13.1")))
+	fmt.Println(subNet.Contains(net.ParseIP("42.194.14.1")))
+	fmt.Println(subNet.Contains(net.ParseIP("42.194.15.1")))
+	fmt.Println(subNet.Contains(net.ParseIP("42.194.16.1")))
+	fmt.Println(net.ParseIP("42.194.15.222").Mask(subNet.Mask))
+
+	fmt.Println(subNet.Mask)
 }
 
 func test7() {

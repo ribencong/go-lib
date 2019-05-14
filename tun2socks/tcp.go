@@ -1,15 +1,12 @@
 package tun2socks
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"github.com/google/gopacket/layers"
 	"io"
 	"log"
 	"math"
 	"net"
-	"net/http"
 	"sync"
 	"syscall"
 	"time"
@@ -39,15 +36,13 @@ func (pp *ProxyPipe) Close() {
 type Session struct {
 	NeedProxy  bool
 	Pipe       *ProxyPipe
-	hostName   string
 	UPTime     time.Time
 	RemoteIP   net.IP
 	RemotePort int
 }
 
 func (s *Session) ToString() string {
-	return fmt.Sprintf("(%s:%t)%s:%d t=%s",
-		s.hostName, s.NeedProxy, s.RemoteIP, s.RemotePort,
+	return fmt.Sprintf("(%t)%s:%d t=%s", s.NeedProxy, s.RemoteIP, s.RemotePort,
 		s.UPTime.Format("2006-01-02 15:04:05"))
 }
 
@@ -56,7 +51,9 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP) *Session {
 		UPTime:     time.Now(),
 		RemoteIP:   ip4.DstIP,
 		RemotePort: int(tcp.DstPort),
+		NeedProxy:  SysConfig.NeedProxy(ip4.DstIP),
 	}
+
 	return s
 }
 
@@ -211,15 +208,6 @@ func (p *TcpProxy) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	if s == nil {
 		s = newSession(ip4, tcp)
 		p.AddSession(int(tcp.SrcPort), s)
-	}
-
-	if len(s.hostName) == 0 && len(tcp.Payload) > 10 {
-		buf := bufio.NewReader(bytes.NewReader(tcp.Payload))
-		if req, err := http.ReadRequest(buf); err == nil {
-			s.hostName = req.Host
-			s.NeedProxy = SysConfig.NeedProxy(s.hostName)
-			log.Printf("Host:[%s]->%t", req.Host, s.NeedProxy)
-		}
 	}
 
 	ip4.SrcIP = ip4.DstIP

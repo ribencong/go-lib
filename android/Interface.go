@@ -21,7 +21,7 @@ type VpnOutputStream interface {
 
 var _instance *tun2socks.Tun2Socks = nil
 
-func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string, GFWList string) error {
+func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string, chineseIPs string) error {
 
 	if reader == nil || writer == nil || service == nil {
 		return fmt.Errorf("parameter invalid")
@@ -34,7 +34,7 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 	tun2socks.SysConfig.Protector = control
 	tun2socks.SysConfig.TunLocalIP = net.ParseIP(localIP)
 	tun2socks.SysConfig.TunWriteBack = writer
-	tun2socks.SysConfig.LoadGFW(GFWList)
+	tun2socks.SysConfig.ParseByPassIP(chineseIPs)
 
 	t2s, err := tun2socks.New(reader)
 	_instance = t2s
@@ -47,12 +47,4 @@ func Run() {
 
 func StopVpn() {
 	_instance.Close()
-}
-
-func LoadGFWList() string {
-	str, e := tun2socks.SysConfig.RefreshRemoteGFWList()
-	if e != nil {
-		return ""
-	}
-	return str
 }
