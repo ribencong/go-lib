@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/ribencong/go-lib/client"
+	"github.com/ribencong/go-lib/tcpPivot"
+	"github.com/ribencong/go-lib/wallet"
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/publicsuffix"
 	"io/ioutil"
@@ -17,7 +18,7 @@ import (
 	"time"
 )
 
-var conf = &client.Config{
+var conf = &wallet.Config{
 	Addr:        "YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ",
 	Cipher:      "GffT4JanGFefAj4isFLYbodKmxzkJt9HYTQTKquueV8mypm3oSicBZ37paYPnDscQ7XoPa4Qgse6q4yv5D2bLPureawFWhicvZC5WqmFp9CGE",
 	LocalServer: ":51080",
@@ -191,7 +192,7 @@ func test1() {
 }
 
 func clientMain() {
-	cli, err := client.NewClient(conf, "12345678")
+	cli, err := wallet.NewWallet(conf, "12345678")
 	if err != nil {
 		panic(err)
 	}
@@ -217,7 +218,7 @@ func test2() {
 			}
 
 			go func() {
-				obj, err := client.ProxyHandShake(c)
+				obj, err := tcpPivot.ProxyHandShake(c)
 				if err != nil {
 					fmt.Println("\nSock5 handshake err:->", err)
 					return

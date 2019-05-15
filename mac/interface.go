@@ -4,14 +4,19 @@ import "C"
 import (
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/ribencong/go-lib/client"
+	"github.com/ribencong/go-lib/tcpPivot"
+	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
+	"strings"
 )
 
-var proxyClient *client.Client = nil
+var proxyClient *tcpPivot.MacProxy = nil
+var SysCB SystemCallBack = nil
 
-const KingFinger = account.ID("YP5rttHPzRsAe2RmF52sLzbBk4jpoPwJLtABaMv6qn7kVm")
+type SystemCallBack interface {
+	RefreshNodeIDs(ids string)
+}
 
 //export LibCreateAccount
 func LibCreateAccount(password string) (*C.char, *C.char) {
@@ -32,28 +37,32 @@ func LibIsInit() bool {
 }
 
 //export LibCreateClient
-func LibCreateClient(addr, cipher, password, license, locSer, netUrl string) bool {
+func LibCreateClient(addr, cipher, password, license, locSer, netUrl, bootNodes string, cb SystemCallBack) bool {
 
+	SysCB = cb
 	if proxyClient != nil {
 		return true
 	}
 
 	fmt.Println(addr, cipher, license, locSer, netUrl)
 
-	conf := &client.Config{
-		Addr:        addr,
-		Cipher:      cipher,
-		License:     license,
-		LocalServer: locSer,
-		SettingUrl:  netUrl,
+	conf := &wallet.Config{
+		Addr:       addr,
+		Cipher:     cipher,
+		License:    license,
+		SettingUrl: netUrl,
 	}
 
-	pc, err := client.NewClient(conf, password)
+	w, err := wallet.NewWallet(conf, password, bootNodes)
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
-	proxyClient = pc
+	proxy, e := tcpPivot.NewMacProxy(locSer, w)
+	if e != nil {
+		return false
+	}
+	proxyClient = proxy
 	return true
 }
 
@@ -64,8 +73,7 @@ func LibProxyRun() {
 	}
 	fmt.Print("start proxy success.....\n")
 
-	err := proxyClient.Running()
-	fmt.Println(err)
+	proxyClient.Proxying()
 	proxyClient = nil
 }
 
@@ -96,5 +104,12 @@ func LibVerifyLicense(license string) bool {
 	}
 	return true
 }
+
+//export LoadBootNodesFromServer
+func LoadBootNodesFromServer() string {
+	nodes := wallet.LoadFromServer("")
+	return strings.Join(nodes, "\n")
+}
+
 func main() {
 }

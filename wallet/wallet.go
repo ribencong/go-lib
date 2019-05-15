@@ -1,4 +1,4 @@
-package client
+package wallet
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,39 +21,31 @@ const DefaultSeedSever = "https://raw.githubusercontent.com/ribencong/ypctorrent
 //const DefaultSeedSever = "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent"
 
 type Config struct {
-	Addr        string
-	Cipher      string
-	LocalServer string
-	License     string
-	SettingUrl  string
+	Addr       string
+	Cipher     string
+	License    string
+	SettingUrl string
 }
+
 type FlowCounter struct {
 	sync.RWMutex
-	closed    bool
+	Closed    bool
 	totalUsed int64
 	unSigned  int64
 }
 
-type Client struct {
+type Wallet struct {
 	*account.Account
 	*FlowCounter
 	fatalErr chan error
 
-	proxyServer net.Listener
-	payConn     *service.JsonConn
-
+	payConn    *service.JsonConn
 	aesKey     account.PipeCryptKey
 	license    *service.License
 	curService *service.ServeNodeId
 }
 
-func NewClient(conf *Config, password string) (*Client, error) {
-
-	ls, err := net.Listen("tcp", conf.LocalServer)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("\nSocks5 proxy server at:%s", conf.LocalServer)
+func NewWallet(conf *Config, password, bootNodes string) (*Wallet, error) {
 
 	acc, err := account.AccFromString(conf.Addr, conf.Cipher, password)
 	if err != nil {
@@ -69,81 +62,64 @@ func NewClient(conf *Config, password string) (*Client, error) {
 	if l.UserAddr != acc.Address.ToString() {
 		return nil, fmt.Errorf("license and account address are not same")
 	}
-	var url = conf.SettingUrl
-	if len(url) == 0 {
-		url = DefaultSeedSever
-	}
-	services := LoadBootStrap(url)
-	mi := FindBestPath(services)
+
+	mi := FindBestPath(conf, bootNodes)
 	if mi == nil {
-		return nil, fmt.Errorf("no valid service")
+		return nil, fmt.Errorf("no valid boot strap node")
 	}
 
 	fmt.Printf("\nfind server:%s", mi.ToString())
 
-	c := &Client{
-		Account:     acc,
-		fatalErr:    make(chan error, 5),
-		proxyServer: ls,
-		license:     l,
-		curService:  mi,
+	w := &Wallet{
+		Account:    acc,
+		fatalErr:   make(chan error, 5),
+		license:    l,
+		curService: mi,
 	}
 
-	if err := c.Key.GenerateAesKey(&c.aesKey, mi.ID.ToPubKey()); err != nil {
+	if err := w.Key.GenerateAesKey(&w.aesKey, mi.ID.ToPubKey()); err != nil {
 		return nil, err
 	}
 
 	fmt.Println("\ncreate aes key success")
+	go w.Running()
 
-	return c, nil
+	return w, nil
 }
 
-func (c *Client) Running() error {
+func (w *Wallet) Running() {
 
-	defer c.proxyServer.Close()
-
-	if err := c.createPayChannel(); err != nil {
-		return err
+	if err := w.createPayChannel(); err != nil {
+		return
 	}
 
-	defer c.payConn.Close()
+	defer w.payConn.Close()
 	defer func() {
-		c.FlowCounter.closed = true
+		w.FlowCounter.Closed = true
 	}()
 
 	fmt.Println("\ncreate payment channel success")
 
-	go c.payMonitor()
-
-	for {
-		conn, err := c.proxyServer.Accept()
-		if err != nil {
-			return fmt.Errorf("\nFinish to proxy system request :%s", err)
-		}
-
-		fmt.Println("\nNew system proxy request:", conn.RemoteAddr().String())
-		conn.(*net.TCPConn).SetKeepAlive(true)
-		go c.consume(conn)
-	}
+	w.payMonitor()
 }
 
-func (c *Client) createPayChannel() error {
+func (w *Wallet) createPayChannel() error {
 
-	addr := c.curService.TONetAddr()
+	addr := w.curService.TONetAddr()
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
 
-	data, err := json.Marshal(c.license)
+	data, err := json.Marshal(w.license)
 	if err != nil {
 		return nil
 	}
 
 	hs := &service.YPHandShake{
 		CmdType: service.CmdPayChanel,
-		Sig:     c.Sign(data),
-		Lic:     c.license,
+		Sig:     w.Sign(data),
+		Lic:     w.license,
 	}
 
 	jsonConn := &service.JsonConn{Conn: conn}
@@ -151,20 +127,33 @@ func (c *Client) createPayChannel() error {
 		return err
 	}
 
-	c.payConn = jsonConn
+	w.payConn = jsonConn
 
-	c.FlowCounter = &FlowCounter{}
+	w.FlowCounter = &FlowCounter{}
 	return nil
 }
 
-func (c *Client) Close() {
-	c.fatalErr <- nil
-	c.FlowCounter.closed = true
-	c.payConn.Close()
-	c.proxyServer.Close()
+func (w *Wallet) Close() {
+	w.fatalErr <- nil
+	w.FlowCounter.Closed = true
+	w.payConn.Close()
 }
 
-func LoadBootStrap(url string) []string {
+func FindBestPath(conf *Config, bootNodes string) *service.ServeNodeId {
+	var nodes []string
+	if len(bootNodes) == 0 {
+		nodes = LoadFromServer(conf.SettingUrl)
+	} else {
+		nodes = strings.Split(bootNodes, "\n")
+	}
+
+	return probeAllNodes(nodes)
+}
+
+func LoadFromServer(url string) []string {
+	if len(url) == 0 {
+		url = DefaultSeedSever
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Println(err)
@@ -189,12 +178,12 @@ func LoadBootStrap(url string) []string {
 
 		nodeId := base58.Decode(string(nodeStr))
 		servers = append(servers, string(nodeId))
-		fmt.Printf("\n%s\n", nodeId)
+		fmt.Printf("LoadFromServer:\n%s\n", nodeId)
 	}
 	return servers
 }
 
-func FindBestPath(paths []string) *service.ServeNodeId {
+func probeAllNodes(paths []string) *service.ServeNodeId {
 
 	var locker sync.Mutex
 	s := make([]*service.ServeNodeId, 0)

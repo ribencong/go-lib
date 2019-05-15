@@ -1,4 +1,4 @@
-package client
+package tcpPivot
 
 import (
 	"io"

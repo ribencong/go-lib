@@ -1,4 +1,4 @@
-package client
+package wallet
 
 import (
 	"fmt"
@@ -9,25 +9,25 @@ import (
 	"time"
 )
 
-func (c *Client) payMonitor() {
+func (w *Wallet) payMonitor() {
 	for {
 		bill := &service.PipeBill{}
-		if err := c.payConn.ReadJsonMsg(bill); err != nil {
-			c.fatalErr <- fmt.Errorf("payment channel closed: %v", err)
+		if err := w.payConn.ReadJsonMsg(bill); err != nil {
+			w.fatalErr <- fmt.Errorf("payment channel Closed: %v", err)
 			return
 		}
 
 		fmt.Printf("(%s)Got new bill:%s",
 			time.Now().Format(utils.SysTimeFormat), bill.String())
 
-		proof, err := c.signBill(bill, c.curService.ID, c.Key.PriKey)
+		proof, err := w.signBill(bill, w.curService.ID, w.Key.PriKey)
 		if err != nil {
-			c.fatalErr <- err
+			w.fatalErr <- err
 			return
 		}
 
-		if err := c.payConn.WriteJsonMsg(proof); err != nil {
-			c.fatalErr <- err
+		if err := w.payConn.WriteJsonMsg(proof); err != nil {
+			w.fatalErr <- err
 			return
 		}
 	}
