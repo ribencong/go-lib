@@ -26,7 +26,7 @@ func (s *UdpSession) ProxyOut(data []byte) (int, error) {
 }
 
 func (s *UdpSession) WaitingIn() {
-	log.Printf("Udp session(%s) start:", s.ID)
+	//log.Printf("Udp session(%s) start:", s.ID)
 	defer log.Printf("Udp session(%s) end:", s.ID)
 	defer s.Close()
 
