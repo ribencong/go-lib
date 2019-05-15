@@ -26,7 +26,7 @@ func (bp *byPassIps) Cache(cidr string) {
 	ip, subNet, _ := net.ParseCIDR(cidr)
 	bp.IP[ip.String()] = struct{}{}
 	bp.Masks[subNet.Mask.String()] = subNet.Mask
-	log.Printf("\nCache:ip:%s->ip mask:%s", string(ip), string(subNet.Mask))
+	//log.Printf("\nCache:ip:%s->ip mask:%s", string(ip), string(subNet.Mask))
 }
 
 func (bp byPassIps) Hit(ip net.IP) bool {

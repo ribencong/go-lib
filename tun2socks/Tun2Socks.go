@@ -6,7 +6,7 @@ import (
 	"log"
 	"math"
 	"net"
-	"syscall"
+	"sync"
 	"time"
 )
 
@@ -20,9 +20,11 @@ const (
 type ConnProtect func(fd uintptr)
 
 type Tun2Socks struct {
-	udpProxy   *UdpProxy
-	tcpProxy   *TcpProxy
-	dataSource VpnInputStream
+	sync.RWMutex
+	innerTcpPivot *net.TCPListener
+	SessionCache  map[int]*Session
+	udpProxy      *UdpProxy
+	dataSource    VpnInputStream
 }
 
 type VpnInputStream interface {
@@ -31,15 +33,19 @@ type VpnInputStream interface {
 
 func New(reader VpnInputStream) (*Tun2Socks, error) {
 
-	tcp, err := NewTcpProxy()
-	if err != nil {
-		return nil, err
+	l, e := net.ListenTCP("tcp", &net.TCPAddr{
+		Port: LocalProxyPort,
+	})
+	if e != nil {
+		return nil, e
 	}
 	tsc := &Tun2Socks{
-		udpProxy:   NewUdpProxy(),
-		tcpProxy:   tcp,
-		dataSource: reader,
+		innerTcpPivot: l,
+		SessionCache:  make(map[int]*Session),
+		udpProxy:      NewUdpProxy(),
+		dataSource:    reader,
 	}
+	go tsc.Transfer()
 
 	return tsc, nil
 }
@@ -64,7 +70,7 @@ func (t2s *Tun2Socks) Reading() {
 		var tcp *layers.TCP = nil
 		if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 			tcp = tcpLayer.(*layers.TCP)
-			t2s.tcpProxy.ReceivePacket(ip4, tcp)
+			t2s.ReceivePacket(ip4, tcp)
 			continue
 		}
 
@@ -82,68 +88,77 @@ func (t2s *Tun2Socks) Reading() {
 func (t2s *Tun2Socks) Close() {
 }
 
-func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byte) []byte {
+func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
-	ip4 := &layers.IPv4{
-		Version:  4,
-		TTL:      64,
-		SrcIP:    srcIp,
-		DstIP:    DstIp,
-		Protocol: layers.IPProtocolUDP,
-	}
-	udp := &layers.UDP{
-		SrcPort: layers.UDPPort(srcPort),
-		DstPort: layers.UDPPort(dstPort),
+	//PrintFlow("-=->tun2Proxy", ip4, tcp)
+
+	s := t2s.GetSession(int(tcp.SrcPort))
+	if s == nil {
+		s = newSession(ip4, tcp)
+		t2s.AddSession(int(tcp.SrcPort), s)
 	}
 
-	if err := udp.SetNetworkLayerForChecksum(ip4); err != nil {
-		log.Println("Udp Wrap ip packet check sum err:", err)
-		return nil
-	}
+	ip4.SrcIP = ip4.DstIP
+	ip4.DstIP = SysConfig.TunLocalIP
+	tcp.DstPort = LocalProxyPort
 
-	b := gopacket.NewSerializeBuffer()
-	opt := gopacket.SerializeOptions{
-		FixLengths:       true,
-		ComputeChecksums: true,
-	}
+	data := ChangePacket(ip4, tcp)
+	//log.Printf("After:%02x", data)
+	//log.Println("session:", len(tcp.Payload), s.ToString())
+	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
-	if err := gopacket.SerializeLayers(b, opt, ip4, udp, gopacket.Payload(payload)); err != nil {
-		log.Println("Wrap dns to ip packet  err:", err)
-		return nil
+	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
+		log.Println("-=->tun2Proxy write to tun err:", err)
+		return
 	}
-
-	return b.Bytes()
 }
 
-func ProtectConn(conn syscall.Conn) error {
-	rawConn, err := conn.SyscallConn()
-	if err != nil {
-		log.Println("Protect Err:", err)
-		return err
+func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP) {
+	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	s := t2s.GetSession(int(tcp.DstPort))
+
+	if s == nil {
+		log.Printf("No such sess:%s:%d->%s:%d",
+			ip4.DstIP, tcp.DstPort, ip4.SrcIP, tcp.SrcPort)
+		return
 	}
 
-	if err := rawConn.Control(SysConfig.Protector); err != nil {
-		log.Println("Protect Err:", err)
-		return err
-	}
+	ip4.SrcIP = ip4.DstIP
+	ip4.DstIP = SysConfig.TunLocalIP
+	tcp.SrcPort = layers.TCPPort(s.RemotePort)
+	data := ChangePacket(ip4, tcp)
 
-	return nil
+	//log.Printf("After:%02x", data)
+	//log.Println("session:", s.ToString())
+	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
+
+	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
+		log.Println("<-=-proxy2Tun write to tun err:", err)
+		return
+	}
 }
 
-func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
-
-	tcp.SetNetworkLayerForChecksum(ip4)
-
-	b := gopacket.NewSerializeBuffer()
-	opt := gopacket.SerializeOptions{
-		FixLengths:       true,
-		ComputeChecksums: true,
+func (t2s *Tun2Socks) ReceivePacket(ip4 *layers.IPv4, tcp *layers.TCP) {
+	if int(tcp.SrcPort) == LocalProxyPort {
+		t2s.proxy2Tun(ip4, tcp)
+		return
 	}
+	t2s.tun2Proxy(ip4, tcp)
+}
 
-	if err := gopacket.SerializeLayers(b, opt, ip4, tcp, gopacket.Payload(tcp.Payload)); err != nil {
-		log.Println("Wrap Tcp to ip packet  err:", err)
-		return nil
-	}
+func (t2s *Tun2Socks) GetSession(key int) *Session {
+	t2s.RLock()
+	defer t2s.RUnlock()
+	return t2s.SessionCache[key]
+}
+func (t2s *Tun2Socks) AddSession(portKey int, s *Session) {
+	t2s.Lock()
+	defer t2s.Unlock()
+	t2s.SessionCache[portKey] = s
+}
 
-	return b.Bytes()
+func (t2s *Tun2Socks) RemoveSession(key int) {
+	t2s.Lock()
+	defer t2s.Unlock()
+	delete(t2s.SessionCache, key)
 }
