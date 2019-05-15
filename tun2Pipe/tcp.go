@@ -1,4 +1,4 @@
-package tun2socks
+package tun2Pipe
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-func (t2s *Tun2Socks) Transfer() {
+func (t2s *Tun2Socks) Pivoting() {
 
 	defer log.Println("Tcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr())
 	defer t2s.innerTcpPivot.Close()
@@ -52,10 +52,6 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 		}
 
 		if s.Pipe == nil {
-
-			if s.ByPass {
-				print("This one no need proxy:", s.ToString())
-			}
 
 			d := &net.Dialer{
 				Timeout: SysDialTimeOut,

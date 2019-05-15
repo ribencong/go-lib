@@ -1,4 +1,4 @@
-package tun2socks
+package tun2Pipe
 
 import (
 	"fmt"

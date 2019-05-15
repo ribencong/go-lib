@@ -1,4 +1,4 @@
-package tun2socks
+package tun2Pipe
 
 import (
 	"github.com/google/gopacket"
@@ -29,7 +29,7 @@ type DnsProxy struct {
 
 func NewDnsCache() (*DnsProxy, error) {
 	conn, err := net.ListenUDP("udp", &net.UDPAddr{
-		Port: LocalProxyPort,
+		Port: InnerPivotPort,
 	})
 	if err != nil {
 		return nil, err

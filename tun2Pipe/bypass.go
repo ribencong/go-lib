@@ -1,8 +1,9 @@
-package tun2socks
+package tun2Pipe
 
 import (
 	"log"
 	"net"
+	"strings"
 	"sync"
 )
 
@@ -12,21 +13,20 @@ type byPassIps struct {
 	sync.RWMutex
 }
 
-func newByPass() *byPassIps {
-	return &byPassIps{
+func newByPass(ips string) *byPassIps {
+
+	bp := &byPassIps{
 		Masks: make(map[string]net.IPMask),
 		IP:    make(map[string]struct{}),
 	}
-}
 
-func (bp *byPassIps) Cache(cidr string) {
-	bp.Lock()
-	defer bp.Unlock()
-
-	ip, subNet, _ := net.ParseCIDR(cidr)
-	bp.IP[ip.String()] = struct{}{}
-	bp.Masks[subNet.Mask.String()] = subNet.Mask
-	//log.Printf("\nCache:ip:%s->ip mask:%s", string(ip), string(subNet.Mask))
+	array := strings.Split(ips, "\n")
+	for _, cidr := range array {
+		ip, subNet, _ := net.ParseCIDR(cidr)
+		bp.IP[ip.String()] = struct{}{}
+		bp.Masks[subNet.Mask.String()] = subNet.Mask
+	}
+	return bp
 }
 
 func (bp byPassIps) Hit(ip net.IP) bool {
