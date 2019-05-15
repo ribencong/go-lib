@@ -96,3 +96,5 @@ func LibVerifyLicense(license string) bool {
 	}
 	return true
 }
+func main() {
+}
