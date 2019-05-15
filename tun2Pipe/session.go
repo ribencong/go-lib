@@ -19,7 +19,8 @@ type Session struct {
 }
 
 func (s *Session) ToString() string {
-	return fmt.Sprintf("%s:%d t=%s", s.RemoteIP, s.RemotePort,
+	return fmt.Sprintf("(srvPort=%d, bypass=%t) %s:%d t=%s", s.ServerPort, s.byPass,
+		s.RemoteIP, s.RemotePort,
 		s.UPTime.Format("2006-01-02 15:04:05"))
 }
 
@@ -31,6 +32,8 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP, srvPort int, bp bool) *Sessio
 		ServerPort: srvPort,
 		byPass:     bp,
 	}
+
+	log.Println("New Session:", s.ToString())
 	return s
 }
 

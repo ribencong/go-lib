@@ -22,7 +22,7 @@ type VpnOutputStream interface {
 
 var _instance *tun2Pipe.Tun2Socks = nil
 
-func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localIP string, byPassIPs string) error {
+func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localAddr string, byPassIPs string) error {
 
 	if reader == nil || writer == nil || service == nil {
 		return fmt.Errorf("parameter invalid")
@@ -33,10 +33,11 @@ func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService,
 	}
 
 	tun2Pipe.SysConfig.Protector = control
+	localIP, _, _ := net.SplitHostPort(localAddr)
 	tun2Pipe.SysConfig.TunLocalIP = net.ParseIP(localIP)
 	tun2Pipe.SysConfig.TunWriteBack = writer
 
-	proxy, e := tcpPivot.NewAndroidProxy(localIP + ":0")
+	proxy, e := tcpPivot.NewAndroidProxy(localAddr)
 	if e != nil {
 		return e
 	}

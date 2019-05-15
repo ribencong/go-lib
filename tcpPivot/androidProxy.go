@@ -91,6 +91,7 @@ func (ap *AndroidProxy) Proxying() {
 			log.Println("can't find nat session cache for source port:", srcPort)
 			continue
 		}
+		log.Println("New vpn request:", tgtAddr.String())
 	}
 }
 
