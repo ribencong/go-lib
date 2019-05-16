@@ -7,6 +7,7 @@ import (
 	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/service"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sort"
 	"strings"
@@ -25,10 +26,6 @@ type ProxyConfig struct {
 	BootNodes string
 }
 
-type RefreshBootCallBack interface {
-	SaveBootIDs(string)
-}
-
 func (c *ProxyConfig) ToString() string {
 	return fmt.Sprintf(">>>>>>>>>>>>>>>>>>>>>>\n"+
 		"wallet:%s\n"+
@@ -39,11 +36,11 @@ func (c *ProxyConfig) ToString() string {
 	)
 }
 
-func (c *ProxyConfig) FindBootServers(cb RefreshBootCallBack) []*service.ServeNodeId {
+func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
 	var nodes []string
 	if len(c.BootNodes) == 0 {
 		nodes = LoadFromServer(c.SettingUrl)
-		go cb.SaveBootIDs(strings.Join(nodes, "\n"))
+		go ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644)
 	} else {
 		nodes = strings.Split(c.BootNodes, "\n")
 	}
@@ -52,7 +49,8 @@ func (c *ProxyConfig) FindBootServers(cb RefreshBootCallBack) []*service.ServeNo
 
 	if len(IDs) == 0 && len(c.BootNodes) != 0 {
 		nodes = LoadFromServer(c.SettingUrl)
-		go cb.SaveBootIDs(strings.Join(nodes, "\n"))
+		strings.Join(nodes, "\n")
+		go ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644)
 	}
 
 	return probeAllNodes(nodes)

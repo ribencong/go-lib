@@ -9,7 +9,7 @@ import (
 
 type VpnDelegate interface {
 	tun2Pipe.VpnDelegate
-	pipeProxy.RefreshBootCallBack
+	GetBootPath() string
 }
 
 var _instance *pipeProxy.PipeProxy = nil
@@ -26,7 +26,7 @@ func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error 
 	proxyConf.BootNodes = boot
 	tun2Pipe.ByPassInst().Load(IPs)
 
-	mis := proxyConf.FindBootServers(d)
+	mis := proxyConf.FindBootServers(d.GetBootPath())
 	if len(mis) == 0 {
 		return fmt.Errorf("no valid boot strap node")
 	}

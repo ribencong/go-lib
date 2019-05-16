@@ -48,12 +48,8 @@ func LibVerifyLicense(license string) bool {
 	return true
 }
 
-type SystemCallBack interface {
-	pipeProxy.RefreshBootCallBack
-}
-
 //export LibInitProxy
-func LibInitProxy(addr, cipher, license, url, boot string, cb SystemCallBack) error {
+func LibInitProxy(addr, cipher, license, url, boot, path string) bool {
 	proxyConf = &pipeProxy.ProxyConfig{
 		WConfig: &wallet.WConfig{
 			BCAddr:     addr,
@@ -64,24 +60,27 @@ func LibInitProxy(addr, cipher, license, url, boot string, cb SystemCallBack) er
 		BootNodes: boot,
 	}
 
-	mis := proxyConf.FindBootServers(cb)
+	mis := proxyConf.FindBootServers(path)
 	if len(mis) == 0 {
-		return fmt.Errorf("no valid boot strap node")
+		fmt.Println("no valid boot strap node")
+		return false
 	}
 
 	proxyConf.ServerId = mis[0]
-	return nil
+	return true
 }
 
 //export LibCreateProxy
-func LibCreateProxy(password, locSer string) error {
+func LibCreateProxy(password, locSer string) bool {
 
 	if proxyConf == nil {
-		return fmt.Errorf("init the proxy configuration first please")
+		fmt.Println("init the proxy configuration first please")
+		return false
 	}
 
 	if curProxy != nil {
-		return fmt.Errorf("stop the old instance first please")
+		fmt.Println("stop the old instance first please")
+		return true
 	}
 
 	fmt.Println(proxyConf.ToString())
@@ -89,17 +88,17 @@ func LibCreateProxy(password, locSer string) error {
 	w, err := wallet.NewWallet(proxyConf.WConfig, password)
 	if err != nil {
 		fmt.Println(err)
-		return err
+		return false
 	}
 
 	proxy, e := pipeProxy.NewProxy(locSer, w, NewTunReader())
 	if e != nil {
 		fmt.Println(e)
-		return e
+		return false
 	}
 
 	curProxy = proxy
-	return nil
+	return true
 }
 
 //export LibProxyRun
