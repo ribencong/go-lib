@@ -30,27 +30,25 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 		wallet:      w,
 		tunSrc:      t,
 	}
-
-	go ap.Proxying()
 	return ap, nil
 }
 
-func (mp *PipeProxy) GetServeIP() string {
-	return mp.serverIP
+func (pp *PipeProxy) GetServeIP() string {
+	return pp.serverIP
 }
 
-func (mp *PipeProxy) GetServePort() int {
-	return mp.serverPort
+func (pp *PipeProxy) GetServePort() int {
+	return pp.serverPort
 }
 
-func (mp *PipeProxy) Proxying() {
+func (pp *PipeProxy) Proxying() {
 
-	log.Println("Mac proxy start working at:", mp.Addr().String())
-	defer mp.Close()
+	log.Println("Mac proxy start working at:", pp.Addr().String())
+	defer pp.Close()
 	defer log.Println("Mac proxy exit")
 
 	for {
-		conn, err := mp.Accept()
+		conn, err := pp.Accept()
 		if err != nil {
 			fmt.Printf("\nFinish to proxy system request :%s", err)
 			return
@@ -58,21 +56,25 @@ func (mp *PipeProxy) Proxying() {
 
 		fmt.Println("\nNew system proxy request:", conn.RemoteAddr().String())
 		conn.(*net.TCPConn).SetKeepAlive(true)
-		go mp.consume(conn)
+		go pp.consume(conn)
 	}
 }
 
-func (mp *PipeProxy) consume(conn net.Conn) {
+func (pp *PipeProxy) consume(conn net.Conn) {
 	defer conn.Close()
 
-	tgtAddr := mp.tunSrc.GetTarget(conn)
+	tgtAddr := pp.tunSrc.GetTarget(conn)
 	if len(tgtAddr) == 0 {
 		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
 		return
 	}
 	fmt.Println("\nProxy handshake success:", tgtAddr)
 
-	pipe := mp.wallet.SetupPipe(conn, tgtAddr)
+	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
+	if nil == pipe {
+		fmt.Println("Create pipe failed:", tgtAddr)
+		return
+	}
 
 	pipe.PullDataFromServer()
 

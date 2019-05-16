@@ -39,21 +39,31 @@ func (c *ProxyConfig) ToString() string {
 func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
 	var nodes []string
 	if len(c.BootNodes) == 0 {
+
 		nodes = LoadFromServer(c.SettingUrl)
-		go ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644)
+		if e := ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644); e != nil {
+			println("create boot nodes file failed:", path, e)
+		}
+
 	} else {
+
 		nodes = strings.Split(c.BootNodes, "\n")
 	}
 
 	IDs := probeAllNodes(nodes)
 
 	if len(IDs) == 0 && len(c.BootNodes) != 0 {
+
 		nodes = LoadFromServer(c.SettingUrl)
-		strings.Join(nodes, "\n")
-		go ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644)
+
+		if e := ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644); e != nil {
+			println("replace boot nodes failed:", path, e)
+		}
+
+		return probeAllNodes(nodes)
 	}
 
-	return probeAllNodes(nodes)
+	return IDs
 }
 
 func LoadFromServer(url string) []string {
