@@ -5,58 +5,45 @@ import (
 	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-lib/tun2Pipe"
 	"github.com/ribencong/go-lib/wallet"
-	"io"
-	"net"
 )
 
-type VpnService interface {
-	ByPass(fd int32) bool
-}
-
-type VpnInputStream interface {
-	tun2Pipe.VpnInputStream
-}
-
-type VpnOutputStream interface {
-	io.WriteCloser
+type VpnDelegate interface {
+	tun2Pipe.VpnDelegate
+	pipeProxy.RefreshBootCallBack
 }
 
 var _instance *pipeProxy.PipeProxy = nil
-var proxyConf *pipeProxy.ProxyConfig = &pipeProxy.ProxyConfig{}
+var proxyConf = &pipeProxy.ProxyConfig{}
 
-func InitWallet(addr, cipher, license, url, boot string) {
+func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error {
 	proxyConf.WConfig = &wallet.WConfig{
 		BCAddr:     addr,
 		Cipher:     cipher,
 		License:    license,
 		SettingUrl: url,
 	}
+
 	proxyConf.BootNodes = boot
-}
+	tun2Pipe.ByPassInst().Load(IPs)
 
-func InitTun(reader VpnInputStream, writer VpnOutputStream, service VpnService, localAddr string, byPassIPs string) error {
-
-	if reader == nil || writer == nil || service == nil {
-		return fmt.Errorf("parameter invalid")
+	mis := proxyConf.FindBootServers(d)
+	if len(mis) == 0 {
+		return fmt.Errorf("no valid boot strap node")
 	}
 
-	localIP, _, _ := net.SplitHostPort(localAddr)
+	proxyConf.ServerId = mis[0]
 
-	proxyConf.TunConfig = &tun2Pipe.TunConfig{
-		Protector: func(fd uintptr) {
-			service.ByPass(int32(fd))
-		},
-		TunWriter:  writer,
-		TunReader:  reader,
-		TunLocalIP: net.ParseIP(localIP),
-		ByPassIPs:  byPassIPs,
+	tun2Pipe.VpnInstance = d
+	tun2Pipe.Protector = func(fd uintptr) {
+		d.ByPass(int32(fd))
 	}
+
 	return nil
 }
 
-func SetupVpn(password, locSer string) error {
+func SetupVpn(password, locAddr string) error {
 
-	t2s, err := tun2Pipe.New(proxyConf.TunReader, proxyConf.ByPassIPs, locSer)
+	t2s, err := tun2Pipe.New(locAddr)
 	if err != nil {
 		return err
 	}
@@ -66,7 +53,7 @@ func SetupVpn(password, locSer string) error {
 		return err
 	}
 
-	proxy, e := pipeProxy.NewProxy(locSer, w, t2s)
+	proxy, e := pipeProxy.NewProxy(locAddr, w, t2s)
 	if e != nil {
 		return e
 	}

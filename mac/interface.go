@@ -8,7 +8,6 @@ import (
 	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
-	"strings"
 )
 
 var proxyConf *pipeProxy.ProxyConfig = nil
@@ -49,14 +48,12 @@ func LibVerifyLicense(license string) bool {
 	return true
 }
 
-//export LoadBootNodesFromServer
-func LoadBootNodesFromServer() string {
-	nodes := pipeProxy.LoadFromServer("")
-	return strings.Join(nodes, "\n")
+type SystemCallBack interface {
+	pipeProxy.RefreshBootCallBack
 }
 
 //export LibInitProxy
-func LibInitProxy(addr, cipher, license, url, boot string) {
+func LibInitProxy(addr, cipher, license, url, boot string, cb SystemCallBack) error {
 	proxyConf = &pipeProxy.ProxyConfig{
 		WConfig: &wallet.WConfig{
 			BCAddr:     addr,
@@ -66,6 +63,14 @@ func LibInitProxy(addr, cipher, license, url, boot string) {
 		},
 		BootNodes: boot,
 	}
+
+	mis := proxyConf.FindBootServers(cb)
+	if len(mis) == 0 {
+		return fmt.Errorf("no valid boot strap node")
+	}
+
+	proxyConf.ServerId = mis[0]
+	return nil
 }
 
 //export LibCreateProxy
@@ -75,15 +80,10 @@ func LibCreateProxy(password, locSer string) error {
 		return fmt.Errorf("init the proxy configuration first please")
 	}
 
-	if curProxy.IsRunning() {
-		return nil
+	if curProxy != nil {
+		return fmt.Errorf("stop the old instance first please")
 	}
 
-	mi := proxyConf.FindBestNodeServer()
-	if mi == nil {
-		return fmt.Errorf("no valid boot strap node")
-	}
-	proxyConf.ServerId = mi
 	fmt.Println(proxyConf.ToString())
 
 	w, err := wallet.NewWallet(proxyConf.WConfig, password)

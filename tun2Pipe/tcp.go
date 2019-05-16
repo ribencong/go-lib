@@ -56,7 +56,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 			d := &net.Dialer{
 				Timeout: SysDialTimeOut,
 				Control: func(network, address string, c syscall.RawConn) error {
-					return c.Control(SysConfig.Protector)
+					return c.Control(Protector)
 				},
 			}
 			c, e := d.Dial("tcp", tgtAddr)

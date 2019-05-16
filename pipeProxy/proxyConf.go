@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/ribencong/go-lib/tun2Pipe"
 	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/service"
 	"io"
@@ -23,28 +22,37 @@ type RefreshNodeIDs func(ids string)
 
 type ProxyConfig struct {
 	*wallet.WConfig
-	*tun2Pipe.TunConfig
 	BootNodes string
+}
+
+type RefreshBootCallBack interface {
+	SaveBootIDs(string)
 }
 
 func (c *ProxyConfig) ToString() string {
 	return fmt.Sprintf(">>>>>>>>>>>>>>>>>>>>>>\n"+
 		"wallet:%s\n"+
-		"tun:%s\n"+
 		"bootnodes:%s\n"+
 		">>>>>>>>>>>>>>>>>>>>>>\n",
 		c.WConfig.ToString(),
-		c.TunConfig.ToString(),
 		c.BootNodes,
 	)
 }
 
-func (c *ProxyConfig) FindBestNodeServer() *service.ServeNodeId {
+func (c *ProxyConfig) FindBootServers(cb RefreshBootCallBack) []*service.ServeNodeId {
 	var nodes []string
 	if len(c.BootNodes) == 0 {
 		nodes = LoadFromServer(c.SettingUrl)
+		go cb.SaveBootIDs(strings.Join(nodes, "\n"))
 	} else {
 		nodes = strings.Split(c.BootNodes, "\n")
+	}
+
+	IDs := probeAllNodes(nodes)
+
+	if len(IDs) == 0 && len(c.BootNodes) != 0 {
+		nodes = LoadFromServer(c.SettingUrl)
+		go cb.SaveBootIDs(strings.Join(nodes, "\n"))
 	}
 
 	return probeAllNodes(nodes)
@@ -83,7 +91,7 @@ func LoadFromServer(url string) []string {
 	return servers
 }
 
-func probeAllNodes(paths []string) *service.ServeNodeId {
+func probeAllNodes(paths []string) []*service.ServeNodeId {
 
 	var locker sync.Mutex
 	s := make([]*service.ServeNodeId, 0)
@@ -113,11 +121,11 @@ func probeAllNodes(paths []string) *service.ServeNodeId {
 	waiter.Wait()
 
 	if len(s) == 0 {
-		return nil
+		return s
 	}
 
 	sort.Slice(s, func(i, j int) bool {
 		return s[i].Ping < s[j].Ping
 	})
-	return s[0]
+	return s
 }

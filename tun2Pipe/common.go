@@ -49,7 +49,7 @@ func ProtectConn(conn syscall.Conn) error {
 		return err
 	}
 
-	if err := rawConn.Control(SysConfig.Protector); err != nil {
+	if err := rawConn.Control(Protector); err != nil {
 		log.Println("Protect Err:", err)
 		return err
 	}
@@ -59,7 +59,10 @@ func ProtectConn(conn syscall.Conn) error {
 
 func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
 
-	tcp.SetNetworkLayerForChecksum(ip4)
+	if err := tcp.SetNetworkLayerForChecksum(ip4); err != nil {
+		println("set tcp layer check sum err:", err)
+		return nil
+	}
 
 	b := gopacket.NewSerializeBuffer()
 	opt := gopacket.SerializeOptions{

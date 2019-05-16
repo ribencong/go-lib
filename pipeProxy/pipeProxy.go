@@ -9,7 +9,6 @@ import (
 )
 
 type PipeProxy struct {
-	runFlag    bool
 	serverIP   string
 	serverPort int
 	*net.TCPListener
@@ -78,8 +77,4 @@ func (mp *PipeProxy) consume(conn net.Conn) {
 	pipe.PullDataFromServer()
 
 	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
-}
-
-func (mp *PipeProxy) IsRunning() bool {
-	return mp.runFlag
 }
