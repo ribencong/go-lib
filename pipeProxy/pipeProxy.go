@@ -1,4 +1,4 @@
-package tcpPivot
+package pipeProxy
 
 import (
 	"fmt"
@@ -8,40 +8,43 @@ import (
 	"strconv"
 )
 
-type MacProxy struct {
+type PipeProxy struct {
+	runFlag    bool
 	serverIP   string
 	serverPort int
 	*net.TCPListener
 	wallet *wallet.Wallet
+	tunSrc Tun2Pipe
 }
 
-func NewMacProxy(addr string, w *wallet.Wallet) (*MacProxy, error) {
+func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 	l, e := net.Listen("tcp", addr)
 	if e != nil {
 		return nil, e
 	}
 	ip, port, _ := net.SplitHostPort(addr)
 	p, _ := strconv.Atoi(port)
-	ap := &MacProxy{
+	ap := &PipeProxy{
 		serverIP:    ip,
 		serverPort:  p,
 		TCPListener: l.(*net.TCPListener),
 		wallet:      w,
+		tunSrc:      t,
 	}
 
 	go ap.Proxying()
 	return ap, nil
 }
 
-func (mp *MacProxy) GetServeIP() string {
+func (mp *PipeProxy) GetServeIP() string {
 	return mp.serverIP
 }
 
-func (mp *MacProxy) GetServePort() int {
+func (mp *PipeProxy) GetServePort() int {
 	return mp.serverPort
 }
 
-func (mp *MacProxy) Proxying() {
+func (mp *PipeProxy) Proxying() {
 
 	log.Println("Mac proxy start working at:", mp.Addr().String())
 	defer mp.Close()
@@ -60,19 +63,23 @@ func (mp *MacProxy) Proxying() {
 	}
 }
 
-func (mp *MacProxy) consume(conn net.Conn) {
+func (mp *PipeProxy) consume(conn net.Conn) {
 	defer conn.Close()
 
-	obj, err := ProxyHandShake(conn)
-	if err != nil {
-		fmt.Println("\nSock5 handshake err:->", err)
+	tgtAddr := mp.tunSrc.GetTarget(conn)
+	if len(tgtAddr) == 0 {
+		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
 		return
 	}
-	fmt.Println("\nProxy handshake success:", obj.Target)
+	fmt.Println("\nProxy handshake success:", tgtAddr)
 
-	pipe := mp.wallet.SetupPipe(conn, obj.Target)
+	pipe := mp.wallet.SetupPipe(conn, tgtAddr)
 
 	pipe.PullDataFromServer()
 
-	fmt.Printf("\n\nPipe for(%s) is closing", obj.Target)
+	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
+}
+
+func (mp *PipeProxy) IsRunning() bool {
+	return mp.runFlag
 }

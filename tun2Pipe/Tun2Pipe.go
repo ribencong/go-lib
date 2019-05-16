@@ -1,13 +1,14 @@
 package tun2Pipe
 
 import (
+	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/ribencong/go-lib/tcpPivot"
 	"io"
 	"log"
 	"math"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -20,9 +21,18 @@ const (
 )
 
 type TunConfig struct {
-	Protector    ConnProtect
-	TunWriteBack io.WriteCloser
-	TunLocalIP   net.IP
+	Protector  ConnProtect
+	TunWriter  io.WriteCloser
+	TunLocalIP net.IP
+	TunReader  VpnInputStream
+	ByPassIPs  string
+}
+
+func (tc *TunConfig) ToString() string {
+	return fmt.Sprintf("\t TunLocalIP:%s\n"+
+		"\t ByPassIPs:%d",
+		tc.TunLocalIP.String(),
+		len(tc.ByPassIPs))
 }
 
 var (
@@ -39,15 +49,16 @@ type Tun2Socks struct {
 	SessionCache  map[int]*Session
 	udpProxy      *UdpProxy
 	dataSource    VpnInputStream
-	proxy         tcpPivot.TcpProxy
 	byPass        *byPassIps
+	proxyPort     int
+	proxyIP       net.IP
 }
 
 type VpnInputStream interface {
 	ReadBuff() []byte
 }
 
-func New(reader VpnInputStream, proxy tcpPivot.TcpProxy, byPassIPs string) (*Tun2Socks, error) {
+func New(reader VpnInputStream, byPassIPs string, proxyAddr string) (*Tun2Socks, error) {
 
 	l, e := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: InnerPivotPort,
@@ -56,18 +67,37 @@ func New(reader VpnInputStream, proxy tcpPivot.TcpProxy, byPassIPs string) (*Tun
 		return nil, e
 	}
 
+	ip, port, _ := net.SplitHostPort(proxyAddr)
+	intPort, _ := strconv.Atoi(port)
 	tsc := &Tun2Socks{
 		innerTcpPivot: l,
 		SessionCache:  make(map[int]*Session),
 		udpProxy:      NewUdpProxy(),
 		dataSource:    reader,
-		proxy:         proxy,
 		byPass:        newByPass(byPassIPs),
+		proxyIP:       net.ParseIP(ip),
+		proxyPort:     intPort,
 	}
 
 	go tsc.Pivoting()
+	go tsc.ReadTunData()
 
 	return tsc, nil
+}
+
+func (t2s *Tun2Socks) GetTarget(conn net.Conn) string {
+	keyPort := conn.RemoteAddr().(*net.TCPAddr).Port
+	s := t2s.GetSession(keyPort)
+	if s == nil {
+		return ""
+	}
+
+	addr := &net.TCPAddr{
+		IP:   s.RemoteIP,
+		Port: s.RemotePort,
+	}
+
+	return addr.String()
 }
 
 func (t2s *Tun2Socks) ReadTunData() {
@@ -115,14 +145,9 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	s := t2s.GetSession(srcPort)
 	if s == nil {
 		var srvPort = InnerPivotPort
-
 		bypass := t2s.byPass.Hit(ip4.DstIP)
 		if !bypass {
-			srvPort = t2s.proxy.GetServePort()
-			t2s.proxy.AddNatItem(srcPort, &net.TCPAddr{
-				IP:   ip4.DstIP,
-				Port: int(tcp.DstPort),
-			})
+			srvPort = t2s.proxyPort
 		}
 
 		s = newSession(ip4, tcp, srvPort, bypass)
@@ -136,7 +161,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	data := ChangePacket(ip4, tcp)
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
-	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
+	if _, err := SysConfig.TunWriter.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
 		return
 	}
@@ -151,7 +176,7 @@ func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 	data := ChangePacket(ip4, tcp)
 
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
-	if _, err := SysConfig.TunWriteBack.Write(data); err != nil {
+	if _, err := SysConfig.TunWriter.Write(data); err != nil {
 		log.Println("<-=-proxy2Tun write to tun err:", err)
 		return
 	}
@@ -160,7 +185,7 @@ func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 func (t2s *Tun2Socks) ProcessTcpPacket(ip4 *layers.IPv4, tcp *layers.TCP) {
 	srcPort := int(tcp.SrcPort)
 	if srcPort == InnerPivotPort ||
-		srcPort == t2s.proxy.GetServePort() {
+		srcPort == t2s.proxyPort {
 		dstPort := int(tcp.DstPort)
 		if s := t2s.GetSession(dstPort); s != nil {
 			t2s.proxy2Tun(ip4, tcp, s.RemotePort)

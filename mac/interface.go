@@ -4,19 +4,15 @@ import "C"
 import (
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/ribencong/go-lib/tcpPivot"
+	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
 	"strings"
 )
 
-var proxyClient *tcpPivot.MacProxy = nil
-var SysCB SystemCallBack = nil
-
-type SystemCallBack interface {
-	RefreshNodeIDs(ids string)
-}
+var proxyConf *pipeProxy.ProxyConfig = nil
+var curProxy *pipeProxy.PipeProxy = nil
 
 //export LibCreateAccount
 func LibCreateAccount(password string) (*C.char, *C.char) {
@@ -33,59 +29,7 @@ func LibCreateAccount(password string) (*C.char, *C.char) {
 
 //export LibIsInit
 func LibIsInit() bool {
-	return proxyClient != nil
-}
-
-//export LibCreateClient
-func LibCreateClient(addr, cipher, password, license, locSer, netUrl, bootNodes string, cb SystemCallBack) bool {
-
-	SysCB = cb
-	if proxyClient != nil {
-		return true
-	}
-
-	fmt.Println(addr, cipher, license, locSer, netUrl)
-
-	conf := &wallet.Config{
-		Addr:       addr,
-		Cipher:     cipher,
-		License:    license,
-		SettingUrl: netUrl,
-	}
-
-	w, err := wallet.NewWallet(conf, password, bootNodes)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	proxy, e := tcpPivot.NewMacProxy(locSer, w)
-	if e != nil {
-		return false
-	}
-	proxyClient = proxy
-	return true
-}
-
-//export LibProxyRun
-func LibProxyRun() {
-	if proxyClient == nil {
-		return
-	}
-	fmt.Print("start proxy success.....\n")
-
-	proxyClient.Proxying()
-	proxyClient = nil
-}
-
-//export LibStopClient
-func LibStopClient() {
-	if proxyClient == nil {
-		return
-	}
-
-	proxyClient.Close()
-	proxyClient = nil
-	return
+	return curProxy != nil
 }
 
 //export LibVerifyAccount
@@ -107,8 +51,78 @@ func LibVerifyLicense(license string) bool {
 
 //export LoadBootNodesFromServer
 func LoadBootNodesFromServer() string {
-	nodes := wallet.LoadFromServer("")
+	nodes := pipeProxy.LoadFromServer("")
 	return strings.Join(nodes, "\n")
+}
+
+//export LibInitProxy
+func LibInitProxy(addr, cipher, license, url, boot string) {
+	proxyConf = &pipeProxy.ProxyConfig{
+		WConfig: &wallet.WConfig{
+			BCAddr:     addr,
+			Cipher:     cipher,
+			License:    license,
+			SettingUrl: url,
+		},
+		BootNodes: boot,
+	}
+}
+
+//export LibCreateProxy
+func LibCreateProxy(password, locSer string) error {
+
+	if proxyConf == nil {
+		return fmt.Errorf("init the proxy configuration first please")
+	}
+
+	if curProxy.IsRunning() {
+		return nil
+	}
+
+	mi := proxyConf.FindBestNodeServer()
+	if mi == nil {
+		return fmt.Errorf("no valid boot strap node")
+	}
+	proxyConf.ServerId = mi
+	fmt.Println(proxyConf.ToString())
+
+	w, err := wallet.NewWallet(proxyConf.WConfig, password)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	proxy, e := pipeProxy.NewProxy(locSer, w, NewTunReader())
+	if e != nil {
+		fmt.Println(e)
+		return e
+	}
+
+	curProxy = proxy
+	return nil
+}
+
+//export LibProxyRun
+func LibProxyRun() {
+	if curProxy == nil {
+		return
+	}
+	fmt.Print("start proxy success.....\n")
+
+	curProxy.Proxying()
+	curProxy = nil
+}
+
+//export LibStopClient
+func LibStopClient() {
+	if curProxy == nil {
+		return
+	}
+
+	curProxy.Close()
+	curProxy = nil
+
+	return
 }
 
 func main() {

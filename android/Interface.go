@@ -2,8 +2,9 @@ package tun2socksA
 
 import (
 	"fmt"
-	"github.com/ribencong/go-lib/tcpPivot"
+	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-lib/tun2Pipe"
+	"github.com/ribencong/go-lib/wallet"
 	"io"
 	"net"
 )
@@ -20,35 +21,61 @@ type VpnOutputStream interface {
 	io.WriteCloser
 }
 
-var _instance *tun2Pipe.Tun2Socks = nil
+var _instance *pipeProxy.PipeProxy = nil
+var proxyConf *pipeProxy.ProxyConfig = &pipeProxy.ProxyConfig{}
 
-func SetupVpn(reader VpnInputStream, writer VpnOutputStream, service VpnService, localAddr string, byPassIPs string) error {
+func InitWallet(addr, cipher, license, url, boot string) {
+	proxyConf.WConfig = &wallet.WConfig{
+		BCAddr:     addr,
+		Cipher:     cipher,
+		License:    license,
+		SettingUrl: url,
+	}
+	proxyConf.BootNodes = boot
+}
+
+func InitTun(reader VpnInputStream, writer VpnOutputStream, service VpnService, localAddr string, byPassIPs string) error {
 
 	if reader == nil || writer == nil || service == nil {
 		return fmt.Errorf("parameter invalid")
 	}
 
-	control := func(fd uintptr) {
-		service.ByPass(int32(fd))
+	localIP, _, _ := net.SplitHostPort(localAddr)
+
+	proxyConf.TunConfig = &tun2Pipe.TunConfig{
+		Protector: func(fd uintptr) {
+			service.ByPass(int32(fd))
+		},
+		TunWriter:  writer,
+		TunReader:  reader,
+		TunLocalIP: net.ParseIP(localIP),
+		ByPassIPs:  byPassIPs,
+	}
+	return nil
+}
+
+func SetupVpn(password, locSer string) error {
+
+	t2s, err := tun2Pipe.New(proxyConf.TunReader, proxyConf.ByPassIPs, locSer)
+	if err != nil {
+		return err
 	}
 
-	tun2Pipe.SysConfig.Protector = control
-	localIP, _, _ := net.SplitHostPort(localAddr)
-	tun2Pipe.SysConfig.TunLocalIP = net.ParseIP(localIP)
-	tun2Pipe.SysConfig.TunWriteBack = writer
+	w, err := wallet.NewWallet(proxyConf.WConfig, password)
+	if err != nil {
+		return err
+	}
 
-	proxy, e := tcpPivot.NewAndroidProxy(localAddr)
+	proxy, e := pipeProxy.NewProxy(locSer, w, t2s)
 	if e != nil {
 		return e
 	}
-
-	t2s, err := tun2Pipe.New(reader, proxy, byPassIPs)
-	_instance = t2s
-	return err
+	_instance = proxy
+	return nil
 }
 
 func Run() {
-	_instance.ReadTunData()
+	_instance.Proxying()
 }
 
 func StopVpn() {

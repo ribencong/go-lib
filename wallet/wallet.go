@@ -1,30 +1,33 @@
 package wallet
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
-	"io"
 	"net"
-	"net/http"
-	"sort"
-	"strings"
 	"sync"
-	"time"
 )
 
-const DefaultSeedSever = "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc.torrent"
-
-//const DefaultSeedSever = "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent"
-
-type Config struct {
-	Addr       string
+type WConfig struct {
+	BCAddr     string
 	Cipher     string
 	License    string
 	SettingUrl string
+	ServerId   *service.ServeNodeId
+}
+
+func (c *WConfig) ToString() string {
+	return fmt.Sprintf("\t BCAddr:%s\n"+
+		"\t Ciphere:%s\n"+
+		"\tLicense:%s\n"+
+		"\tSettingUrl:%s\n"+
+		"\tServerId:%s\n",
+		c.BCAddr,
+		c.Cipher,
+		c.License,
+		c.SettingUrl,
+		c.ServerId.ToString())
 }
 
 type FlowCounter struct {
@@ -45,13 +48,13 @@ type Wallet struct {
 	curService *service.ServeNodeId
 }
 
-func NewWallet(conf *Config, password, bootNodes string) (*Wallet, error) {
+func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 
-	acc, err := account.AccFromString(conf.Addr, conf.Cipher, password)
+	acc, err := account.AccFromString(conf.BCAddr, conf.Cipher, password)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("\nUnlock client success:%s", conf.Addr)
+	fmt.Printf("\nUnlock client success:%s", conf.BCAddr)
 
 	l, err := service.ParseLicense(conf.License)
 	if err != nil {
@@ -62,22 +65,14 @@ func NewWallet(conf *Config, password, bootNodes string) (*Wallet, error) {
 	if l.UserAddr != acc.Address.ToString() {
 		return nil, fmt.Errorf("license and account address are not same")
 	}
-
-	mi := FindBestPath(conf, bootNodes)
-	if mi == nil {
-		return nil, fmt.Errorf("no valid boot strap node")
-	}
-
-	fmt.Printf("\nfind server:%s", mi.ToString())
-
 	w := &Wallet{
 		Account:    acc,
 		fatalErr:   make(chan error, 5),
 		license:    l,
-		curService: mi,
+		curService: conf.ServerId,
 	}
 
-	if err := w.Key.GenerateAesKey(&w.aesKey, mi.ID.ToPubKey()); err != nil {
+	if err := w.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
 		return nil, err
 	}
 
@@ -137,87 +132,4 @@ func (w *Wallet) Close() {
 	w.fatalErr <- nil
 	w.FlowCounter.Closed = true
 	w.payConn.Close()
-}
-
-func FindBestPath(conf *Config, bootNodes string) *service.ServeNodeId {
-	var nodes []string
-	if len(bootNodes) == 0 {
-		nodes = LoadFromServer(conf.SettingUrl)
-	} else {
-		nodes = strings.Split(bootNodes, "\n")
-	}
-
-	return probeAllNodes(nodes)
-}
-
-func LoadFromServer(url string) []string {
-	if len(url) == 0 {
-		url = DefaultSeedSever
-	}
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	servers := make([]string, 0)
-
-	defer resp.Body.Close()
-
-	reader := bufio.NewReader(resp.Body)
-	for {
-		nodeStr, _, err := reader.ReadLine()
-		if err != nil {
-			fmt.Println(err)
-			if err == io.EOF {
-				break
-			} else {
-				continue
-			}
-		}
-
-		nodeId := base58.Decode(string(nodeStr))
-		servers = append(servers, string(nodeId))
-		fmt.Printf("LoadFromServer:\n%s\n", nodeId)
-	}
-	return servers
-}
-
-func probeAllNodes(paths []string) *service.ServeNodeId {
-
-	var locker sync.Mutex
-	s := make([]*service.ServeNodeId, 0)
-
-	var waiter sync.WaitGroup
-	for _, path := range paths {
-
-		mi := service.ParseService(path)
-		waiter.Add(1)
-
-		go func() {
-			defer waiter.Done()
-			now := time.Now()
-			if mi == nil || !mi.IsOK() {
-				fmt.Printf("\nserver(%s) is invalid\n", mi.IP)
-				return
-			}
-
-			mi.Ping = time.Now().Sub(now)
-			fmt.Printf("\nserver(%s) is ok (%dms)\n", mi.IP, mi.Ping/time.Millisecond)
-			locker.Lock()
-			s = append(s, mi)
-			locker.Unlock()
-		}()
-	}
-
-	waiter.Wait()
-
-	if len(s) == 0 {
-		return nil
-	}
-
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Ping < s[j].Ping
-	})
-	return s[0]
 }

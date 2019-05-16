@@ -6,24 +6,20 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/ribencong/go-lib/tcpPivot"
 	"github.com/ribencong/go-lib/wallet"
-	"golang.org/x/net/proxy"
 	"golang.org/x/net/publicsuffix"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 )
 
-var conf = &wallet.Config{
-	Addr:        "YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ",
-	Cipher:      "GffT4JanGFefAj4isFLYbodKmxzkJt9HYTQTKquueV8mypm3oSicBZ37paYPnDscQ7XoPa4Qgse6q4yv5D2bLPureawFWhicvZC5WqmFp9CGE",
-	LocalServer: ":51080",
-	SettingUrl:  "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent",
-	License:     `{"sig":"vQlEcc5XKX7B2Qxtwln4B6oijiUEUnI1DlI30hQEhELW1IUpVFvr2kTDunOrD2tWn39WagM3gk4trBx+jq5kAA==","start":"2019-04-25 09:09:54","end":"2019-05-05 09:09:54","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}`,
+var conf = &wallet.WConfig{
+	BCAddr:     "YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ",
+	Cipher:     "GffT4JanGFefAj4isFLYbodKmxzkJt9HYTQTKquueV8mypm3oSicBZ37paYPnDscQ7XoPa4Qgse6q4yv5D2bLPureawFWhicvZC5WqmFp9CGE",
+	SettingUrl: "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent",
+	License:    `{"sig":"vQlEcc5XKX7B2Qxtwln4B6oijiUEUnI1DlI30hQEhELW1IUpVFvr2kTDunOrD2tWn39WagM3gk4trBx+jq5kAA==","start":"2019-04-25 09:09:54","end":"2019-05-05 09:09:54","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}`,
 }
 
 func main() {
@@ -189,74 +185,4 @@ func test1() {
 			break
 		}
 	}
-}
-
-func clientMain() {
-	cli, err := wallet.NewWallet(conf, "12345678")
-	if err != nil {
-		panic(err)
-	}
-
-	if err := cli.Running(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
-
-func test2() {
-	conn, err := net.Listen("tcp", ":1080")
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-
-		for {
-			c, e := conn.Accept()
-			if e != nil {
-				panic(e)
-			}
-
-			go func() {
-				obj, err := tcpPivot.ProxyHandShake(c)
-				if err != nil {
-					fmt.Println("\nSock5 handshake err:->", err)
-					return
-				}
-				fmt.Println("\nProxy handshake success:", obj.Target)
-				c.Write([]byte("Response"))
-				buf := make([]byte, 1024)
-				n, e := c.Read(buf)
-				if e != nil {
-					panic(e)
-				}
-				fmt.Printf("\n\nServer:%s\n\n", buf[:n])
-				time.Sleep(time.Second)
-				c.Close()
-			}()
-		}
-	}()
-
-	dialer, err := proxy.SOCKS5("tcp", "127.0.0.1:1080", nil, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	c, err := dialer.Dial("tcp", "nbsio.net:80")
-	if err != nil {
-		panic(err)
-	}
-
-	buf := make([]byte, 1024)
-	n, e := c.Read(buf)
-	if e != nil {
-		panic(e)
-	}
-	fmt.Printf("\n\nClient:%s\n\n", buf[:n])
-
-	if _, e := c.Write([]byte("Get")); e != nil {
-		print(e)
-	}
-
-	time.Sleep(25 * time.Second)
 }

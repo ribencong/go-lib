@@ -1,4 +1,4 @@
-package tcpPivot
+package main
 
 import (
 	"io"
@@ -462,27 +462,35 @@ type rfcObj struct {
 	cmd    byte
 	Target string
 	buffer []byte
-	conn   io.ReadWriter
+	conn   net.Conn
 }
 
-func ProxyHandShake(conn net.Conn) (*rfcObj, error) {
+func NewTunReader() *rfcObj {
 
 	obj := &rfcObj{
-		conn:   conn,
 		buffer: make([]byte, MaxAddrLen),
 	}
+	return obj
+}
+
+func (obj *rfcObj) GetTarget(conn net.Conn) string {
+
+	obj.conn = conn
 
 	if err := obj.tcpMethod(); err != nil {
-		return nil, err
+		print(err)
+		return ""
 	}
 
 	if err := obj.request(); err != nil {
-		return nil, err
+		print(err)
+		return ""
 	}
 
 	if err := obj.replies(conn.LocalAddr().String()); err != nil {
-		return nil, err
+		print(err)
+		return ""
 	}
 
-	return obj, nil
+	return obj.Target
 }
