@@ -45,7 +45,7 @@ func (pp *PipeProxy) Proxying() {
 
 	log.Println("Proxy start working at:", pp.Addr().String())
 	defer pp.Close()
-	defer log.Println("Mac proxy exit")
+	defer log.Println("Proxy exit")
 
 	for {
 		conn, err := pp.Accept()

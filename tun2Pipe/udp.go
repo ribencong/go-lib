@@ -26,12 +26,17 @@ func (s *UdpSession) ProxyOut(data []byte) (int, error) {
 }
 
 func (s *UdpSession) WaitingIn() {
-	//log.Printf("Udp session(%s) start:", s.ID)
 	defer log.Printf("Udp session(%s) end:", s.ID)
 	defer s.Close()
 
 	buf := make([]byte, math.MaxInt16)
 	for {
+
+		if e := s.SetReadDeadline(time.Now().Add(UDPSessionTimeOut / 2)); e != nil {
+			println(e)
+			return
+		}
+
 		n, e := s.Read(buf)
 		if e != nil {
 			log.Printf("Udp session(%s) read err:%s", s.ID, e)
@@ -117,6 +122,7 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 
 	id := fmt.Sprintf("(%s:%d)->(%s)->(%s)", ip4.SrcIP, udp.SrcPort,
 		c.LocalAddr().String(), c.RemoteAddr().String())
+
 	s := &UdpSession{
 		ID:      id,
 		Conn:    c,
@@ -124,6 +130,8 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 		SrcPort: int(udp.SrcPort),
 		SrcIP:   ip4.SrcIP,
 	}
+
+	log.Printf("New udp session(%s):", s.ID)
 
 	go s.WaitingIn()
 	return s
