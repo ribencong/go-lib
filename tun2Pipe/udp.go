@@ -2,6 +2,7 @@ package tun2Pipe
 
 import (
 	"fmt"
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"log"
 	"math"
@@ -13,7 +14,7 @@ import (
 
 type UdpSession struct {
 	sync.RWMutex
-	net.Conn
+	*net.UDPConn
 	UTime   time.Time
 	SrcIP   net.IP
 	SrcPort int
@@ -26,24 +27,27 @@ func (s *UdpSession) ProxyOut(data []byte) (int, error) {
 }
 
 func (s *UdpSession) WaitingIn() {
-	defer log.Printf("Udp session(%s) end:", s.ID)
+	defer log.Printf("Udp session(%s) reading end:", s.ID)
 	defer s.Close()
 
 	buf := make([]byte, math.MaxInt16)
 	for {
-
-		if e := s.SetReadDeadline(time.Now().Add(UDPSessionTimeOut / 2)); e != nil {
-			println(e)
-			return
-		}
-
-		n, e := s.Read(buf)
+		n, rAddr, e := s.ReadFromUDP(buf)
 		if e != nil {
 			log.Printf("Udp session(%s) read err:%s", s.ID, e)
 			return
 		}
 
-		rAddr := s.RemoteAddr().(*net.UDPAddr)
+		packet := gopacket.NewPacket(buf[:n], layers.LayerTypeDNS, gopacket.Default)
+		if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
+			log.Println("---------- DNS answer!-------")
+			dns, _ := dnsLayer.(*layers.DNS)
+			for _, a := range dns.Answers {
+				log.Printf("name:%s -> ip:%s", a.Name, a.IP)
+			}
+			log.Println("-----------------------------------")
+		}
+
 		data := WrapIPPacketForUdp(rAddr.IP, s.SrcIP, rAddr.Port, s.SrcPort, buf[:n])
 
 		if _, e := VpnInstance.Write(data); e != nil {
@@ -92,9 +96,20 @@ func (up *UdpProxy) ReceivePacket(ip4 *layers.IPv4, udp *layers.UDP) {
 		up.addSession(s)
 	}
 
-	if _, e := s.ProxyOut(udp.Payload); e != nil {
+	_, e := s.ProxyOut(udp.Payload)
+	if e != nil {
 		log.Println("Udp Session proxy out err:", e)
 		up.removeSession(s)
+	}
+
+	packet := gopacket.NewPacket(udp.Payload, layers.LayerTypeDNS, gopacket.Default)
+	if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
+		log.Println("This is a DNS question!========>")
+		dns, _ := dnsLayer.(*layers.DNS)
+		for _, q := range dns.Questions {
+			log.Printf("%s-%s", q.Name, q.Class.String())
+		}
+		log.Println("==================================")
 	}
 }
 
@@ -125,7 +140,7 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 
 	s := &UdpSession{
 		ID:      id,
-		Conn:    c,
+		UDPConn: c.(*net.UDPConn),
 		UTime:   time.Now(),
 		SrcPort: int(udp.SrcPort),
 		SrcIP:   ip4.SrcIP,

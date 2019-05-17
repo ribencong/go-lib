@@ -39,7 +39,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 		return
 	}
 
-	log.Println("New conn for session:", s.ToString())
+	log.Println("New conn for tcp session:", s.ToString())
 
 	tgtAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
 	buff := make([]byte, math.MaxInt16)
@@ -66,7 +66,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 			}
 			rightConn := c.(*net.TCPConn)
 			rightConn.SetKeepAlive(true)
-			log.Printf("Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
+			log.Printf("TCP: Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
 
 			s.Pipe = &ProxyPipe{
 				Left:  leftConn,
