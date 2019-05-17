@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
-	"github.com/ribencong/go-youPipe/utils"
 	"golang.org/x/crypto/ed25519"
 	"time"
 )
+
+const SysTimeFormat = "2006-01-02 15:04:05"
+const PipeDialTimeOut = time.Second * 2
 
 func (w *Wallet) payMonitor() {
 	for {
@@ -18,7 +20,7 @@ func (w *Wallet) payMonitor() {
 		}
 
 		fmt.Printf("(%s)Got new bill:%s",
-			time.Now().Format(utils.SysTimeFormat), bill.String())
+			time.Now().Format(SysTimeFormat), bill.String())
 
 		proof, err := w.signBill(bill, w.curService.ID, w.Key.PriKey)
 		if err != nil {

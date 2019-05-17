@@ -56,6 +56,7 @@ func LibInitProxy(addr, cipher, license, url, boot, path string) bool {
 			Cipher:     cipher,
 			License:    license,
 			SettingUrl: url,
+			Saver:      nil,
 		},
 		BootNodes: boot,
 	}

@@ -16,11 +16,17 @@ var _instance *pipeProxy.PipeProxy = nil
 var proxyConf = &pipeProxy.ProxyConfig{}
 
 func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error {
+
+	pt := func(fd uintptr) {
+		d.ByPass(int32(fd))
+	}
+
 	proxyConf.WConfig = &wallet.WConfig{
 		BCAddr:     addr,
 		Cipher:     cipher,
 		License:    license,
 		SettingUrl: url,
+		Saver:      pt,
 	}
 
 	proxyConf.BootNodes = boot
@@ -34,9 +40,7 @@ func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error 
 	proxyConf.ServerId = mis[0]
 
 	tun2Pipe.VpnInstance = d
-	tun2Pipe.Protector = func(fd uintptr) {
-		d.ByPass(int32(fd))
-	}
+	tun2Pipe.Protector = pt
 
 	return nil
 }

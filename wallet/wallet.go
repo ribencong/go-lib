@@ -7,6 +7,7 @@ import (
 	"github.com/ribencong/go-youPipe/service"
 	"net"
 	"sync"
+	"syscall"
 )
 
 type WConfig struct {
@@ -15,6 +16,7 @@ type WConfig struct {
 	License    string
 	SettingUrl string
 	ServerId   *service.ServeNodeId
+	Saver      func(fd uintptr)
 }
 
 func (c *WConfig) ToString() string {
@@ -41,6 +43,7 @@ type Wallet struct {
 	*account.Account
 	*FlowCounter
 	fatalErr chan error
+	sysSaver func(fd uintptr)
 
 	payConn    *service.JsonConn
 	aesKey     account.PipeCryptKey
@@ -70,6 +73,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		fatalErr:   make(chan error, 5),
 		license:    l,
 		curService: conf.ServerId,
+		sysSaver:   conf.Saver,
 	}
 
 	if err := w.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
@@ -93,7 +97,7 @@ func (w *Wallet) Running() {
 		w.FlowCounter.Closed = true
 	}()
 
-	fmt.Println("\ncreate payment channel success")
+	println("\ncreate payment channel success")
 
 	w.payMonitor()
 }
@@ -101,7 +105,8 @@ func (w *Wallet) Running() {
 func (w *Wallet) createPayChannel() error {
 
 	addr := w.curService.TONetAddr()
-	conn, err := net.Dial("tcp", addr)
+	conn, err := w.getOuterConn(addr)
+	//conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -132,4 +137,18 @@ func (w *Wallet) Close() {
 	w.fatalErr <- nil
 	w.FlowCounter.Closed = true
 	w.payConn.Close()
+}
+
+func (w *Wallet) getOuterConn(addr string) (net.Conn, error) {
+	d := &net.Dialer{
+		Timeout: PipeDialTimeOut,
+		Control: func(network, address string, c syscall.RawConn) error {
+			if w.sysSaver != nil {
+				return c.Control(w.sysSaver)
+			}
+			return nil
+		},
+	}
+
+	return d.Dial("tcp", addr)
 }

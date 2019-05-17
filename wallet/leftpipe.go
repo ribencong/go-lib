@@ -111,13 +111,11 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 }
 
 func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
-
 	port := w.curService.ID.ToServerPort()
 	addr := network.JoinHostPort(w.curService.IP, port)
-	conn, err := net.Dial("tcp", addr)
+	conn, err := w.getOuterConn(addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", addr, err)
-
 	}
 	conn.(*net.TCPConn).SetKeepAlive(true)
 	return &service.JsonConn{conn}, nil

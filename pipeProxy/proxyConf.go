@@ -37,16 +37,16 @@ func (c *ProxyConfig) ToString() string {
 }
 
 func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
+	println("boot nodes saved path:", path)
+
 	var nodes []string
 	if len(c.BootNodes) == 0 {
-
 		nodes = LoadFromServer(c.SettingUrl)
 		if e := ioutil.WriteFile(path, []byte(strings.Join(nodes, "\n")), 0644); e != nil {
 			println("create boot nodes file failed:", path, e)
 		}
 
 	} else {
-
 		nodes = strings.Split(c.BootNodes, "\n")
 	}
 
@@ -108,6 +108,10 @@ func probeAllNodes(paths []string) []*service.ServeNodeId {
 	for _, path := range paths {
 
 		mi := service.ParseService(path)
+		if mi == nil {
+			continue
+		}
+
 		waiter.Add(1)
 
 		go func() {

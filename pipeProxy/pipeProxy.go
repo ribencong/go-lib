@@ -43,7 +43,7 @@ func (pp *PipeProxy) GetServePort() int {
 
 func (pp *PipeProxy) Proxying() {
 
-	log.Println("Mac proxy start working at:", pp.Addr().String())
+	log.Println("Proxy start working at:", pp.Addr().String())
 	defer pp.Close()
 	defer log.Println("Mac proxy exit")
 
