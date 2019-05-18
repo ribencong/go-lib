@@ -43,17 +43,17 @@ type ProxyPipe struct {
 }
 
 func (pp *ProxyPipe) Right2Left() {
-	no, err := io.Copy(pp.Left, pp.Right)
-	log.Println("Proxy pipe right 2 left finished:", no, err)
+	if _, err := io.Copy(pp.Left, pp.Right); err != nil {
+		log.Println("Tun Proxy pipe right 2 left finished:", err)
+	}
 }
 
 func (pp *ProxyPipe) WriteTunnel(buf []byte) {
 	if _, e := pp.Right.Write(buf); e != nil {
-		log.Println("Proxy pipe left 2 right err:", e)
+		log.Println("Tun Proxy pipe left 2 right err:", e)
 		pp.Close()
 	}
 }
 
 func (pp *ProxyPipe) Close() {
-
 }

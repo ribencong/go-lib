@@ -2,6 +2,7 @@ package tun2Pipe
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net"
@@ -10,10 +11,10 @@ import (
 
 func (t2s *Tun2Socks) Pivoting() {
 
-	defer log.Println("Tcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr())
+	defer log.Println("TunTcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr())
 	defer t2s.innerTcpPivot.Close()
 
-	log.Println("Tcp Proxy start......", t2s.innerTcpPivot.Addr())
+	log.Println("TunTcp Proxy start......", t2s.innerTcpPivot.Addr())
 
 	for {
 		conn, err := t2s.innerTcpPivot.Accept()
@@ -39,7 +40,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 		return
 	}
 
-	log.Println("New conn for tcp session:", s.ToString())
+	log.Println("Tun New conn for tcp session:", s.ToString())
 
 	tgtAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
 	buff := make([]byte, math.MaxInt16)
@@ -47,7 +48,9 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 	for {
 		n, e := leftConn.Read(buff)
 		if e != nil {
-			log.Println("read from left conn err:", e)
+			if e != io.EOF {
+				log.Println("Tun Read from left conn err:", e)
+			}
 			return
 		}
 
@@ -66,7 +69,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 			}
 			rightConn := c.(*net.TCPConn)
 			rightConn.SetKeepAlive(true)
-			log.Printf("TCP: Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
+			log.Printf("TCP:Tun Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
 
 			s.Pipe = &ProxyPipe{
 				Left:  leftConn,

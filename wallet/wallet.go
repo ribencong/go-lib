@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
+	"log"
 	"net"
 	"sync"
 	"syscall"
@@ -15,7 +16,7 @@ type WConfig struct {
 	Cipher     string
 	License    string
 	SettingUrl string
-	ServerId   *service.ServeNodeId
+	ServerId   *ServeNodeId
 	Saver      func(fd uintptr)
 }
 
@@ -48,7 +49,7 @@ type Wallet struct {
 	payConn    *service.JsonConn
 	aesKey     account.PipeCryptKey
 	license    *service.License
-	curService *service.ServeNodeId
+	curService *ServeNodeId
 }
 
 func NewWallet(conf *WConfig, password string) (*Wallet, error) {
@@ -80,40 +81,30 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		return nil, err
 	}
 
-	fmt.Println("\ncreate aes key success")
+	fmt.Println("\nCreate aes key success")
+
+	if err := w.createPayChannel(); err != nil {
+		log.Println("Create payment channel err:", err)
+		return nil, err
+	}
+	println("\nCreate payment channel success")
+
 	go w.Running()
 
 	return w, nil
-}
-
-func (w *Wallet) Running() {
-
-	if err := w.createPayChannel(); err != nil {
-		return
-	}
-
-	defer w.payConn.Close()
-	defer func() {
-		w.FlowCounter.Closed = true
-	}()
-
-	println("\ncreate payment channel success")
-
-	w.payMonitor()
 }
 
 func (w *Wallet) createPayChannel() error {
 
 	addr := w.curService.TONetAddr()
 	conn, err := w.getOuterConn(addr)
-	//conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
 
 	data, err := json.Marshal(w.license)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	hs := &service.YPHandShake{

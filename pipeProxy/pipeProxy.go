@@ -68,7 +68,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
 		return
 	}
-	fmt.Println("\nProxy handshake success:", tgtAddr)
+	fmt.Println("\n Socks Proxy handshake success:", tgtAddr)
 
 	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {

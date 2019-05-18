@@ -11,7 +11,13 @@ import (
 const SysTimeFormat = "2006-01-02 15:04:05"
 const PipeDialTimeOut = time.Second * 2
 
-func (w *Wallet) payMonitor() {
+func (w *Wallet) Running() {
+
+	defer w.payConn.Close()
+	defer func() {
+		w.FlowCounter.Closed = true
+	}()
+
 	for {
 		bill := &service.PipeBill{}
 		if err := w.payConn.ReadJsonMsg(bill); err != nil {

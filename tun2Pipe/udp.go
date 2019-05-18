@@ -38,6 +38,7 @@ func (s *UdpSession) WaitingIn() {
 			return
 		}
 
+		log.Printf("\nFrom(%s) UDP Received:%02x", rAddr.String(), buf[:n])
 		packet := gopacket.NewPacket(buf[:n], layers.LayerTypeDNS, gopacket.Default)
 		if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
 			log.Println("---------- DNS answer!-------")
@@ -103,13 +104,18 @@ func (up *UdpProxy) ReceivePacket(ip4 *layers.IPv4, udp *layers.UDP) {
 	}
 
 	packet := gopacket.NewPacket(udp.Payload, layers.LayerTypeDNS, gopacket.Default)
+	//log.Println(packet.Dump())
 	if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
-		log.Println("This is a DNS question!========>")
 		dns, _ := dnsLayer.(*layers.DNS)
+		if len(dns.Questions) == 0 {
+			return
+		}
+
+		log.Println("This is a DNS question!========>")
 		for _, q := range dns.Questions {
 			log.Printf("%s-%s", q.Name, q.Class.String())
 		}
-		log.Println("==================================")
+		log.Println("================================>")
 	}
 }
 
@@ -146,7 +152,7 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 		SrcIP:   ip4.SrcIP,
 	}
 
-	log.Printf("New udp session(%s):", s.ID)
+	//log.Printf("New udp session(%s):", s.ID)
 
 	go s.WaitingIn()
 	return s

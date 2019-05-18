@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ribencong/go-lib/wallet"
-	"github.com/ribencong/go-youPipe/service"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -36,7 +35,7 @@ func (c *ProxyConfig) ToString() string {
 	)
 }
 
-func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
+func (c *ProxyConfig) FindBootServers(path string) []*wallet.ServeNodeId {
 	println("boot nodes saved path:", path)
 
 	var nodes []string
@@ -50,7 +49,7 @@ func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
 		nodes = strings.Split(c.BootNodes, "\n")
 	}
 
-	IDs := probeAllNodes(nodes)
+	IDs := probeAllNodes(nodes, c.Saver)
 
 	if len(IDs) == 0 && len(c.BootNodes) != 0 {
 
@@ -60,7 +59,7 @@ func (c *ProxyConfig) FindBootServers(path string) []*service.ServeNodeId {
 			println("replace boot nodes failed:", path, e)
 		}
 
-		return probeAllNodes(nodes)
+		return probeAllNodes(nodes, c.Saver)
 	}
 
 	return IDs
@@ -99,15 +98,15 @@ func LoadFromServer(url string) []string {
 	return servers
 }
 
-func probeAllNodes(paths []string) []*service.ServeNodeId {
+func probeAllNodes(paths []string, saver func(fd uintptr)) []*wallet.ServeNodeId {
 
 	var locker sync.Mutex
-	s := make([]*service.ServeNodeId, 0)
+	s := make([]*wallet.ServeNodeId, 0)
 
 	var waiter sync.WaitGroup
 	for _, path := range paths {
 
-		mi := service.ParseService(path)
+		mi := wallet.ParseService(path)
 		if mi == nil {
 			continue
 		}
@@ -117,7 +116,7 @@ func probeAllNodes(paths []string) []*service.ServeNodeId {
 		go func() {
 			defer waiter.Done()
 			now := time.Now()
-			if mi == nil || !mi.IsOK() {
+			if mi == nil || !mi.TestTTL(saver) {
 				fmt.Printf("\nserver(%s) is invalid\n", mi.IP)
 				return
 			}

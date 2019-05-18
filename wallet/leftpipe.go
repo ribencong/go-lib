@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/ribencong/go-youPipe/network"
 	"github.com/ribencong/go-youPipe/service"
+	"log"
 	"net"
 	"time"
 )
 
 type LeftPipe struct {
-	*FlowCounter
+	payCounter  *FlowCounter
 	target      string
 	requestBuf  []byte
 	responseBuf []byte
@@ -25,7 +26,7 @@ func NewPipe(l net.Conn, r *service.PipeConn, pay *FlowCounter, tgt string) *Lef
 		responseBuf: make([]byte, service.BuffSize),
 		proxyConn:   l,
 		consume:     r,
-		FlowCounter: pay,
+		payCounter:  pay,
 	}
 }
 
@@ -41,6 +42,7 @@ func (p *LeftPipe) collectRequest() {
 			}
 		}
 		if err != nil {
+			log.Println(err)
 			return
 		}
 	}
@@ -52,24 +54,25 @@ func (p *LeftPipe) PullDataFromServer() {
 	for {
 		n, err := p.consume.ReadCryptData(p.responseBuf)
 
-		fmt.Printf("\n\n Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
+		fmt.Printf("\n\n Wallet Left pipe Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
 			p.target, p.consume.RemoteAddr().String())
 		if n > 0 {
 			if nw, errW := p.proxyConn.Write(p.responseBuf[:n]); errW != nil {
-				fmt.Printf("\nwrite data to system proxy err:%d, %v\n", nw, errW)
+				fmt.Printf("\n Wallet Left pipe write data to system proxy err:%d, %v\n", nw, errW)
 				return
 			}
 		}
 
 		if err != nil {
+			log.Println(err)
 			return
 		}
 
-		if p.Closed {
+		if p.payCounter.Closed {
 			return
 		}
 
-		p.FlowCounter.Consume(n)
+		p.payCounter.Consume(n)
 	}
 }
 
