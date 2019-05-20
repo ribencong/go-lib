@@ -122,6 +122,7 @@ func (t2s *Tun2Socks) Close() {
 func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
+	println("--1==->tun2Proxy", gopacket.LayerDump(ip4))
 	srcPort := int(tcp.SrcPort)
 	s := t2s.GetSession(srcPort)
 	if s == nil {
@@ -142,7 +143,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	data := ChangePacket(ip4, tcp)
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
-
+	println("--1==->tun2Proxy", gopacket.LayerDump(ip4))
 	if _, err := VpnInstance.Write(data); err != nil {
 		log.Println("-=->tun2Proxy write to tun err:", err)
 		return
@@ -151,11 +152,13 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
+	println("--1==->proxy2Tun", gopacket.LayerDump(ip4))
 
 	ip4.SrcIP = ip4.DstIP
 	ip4.DstIP = t2s.tunIP
 	tcp.SrcPort = layers.TCPPort(rPort)
 	data := ChangePacket(ip4, tcp)
+	println("--2==->proxy2Tun", gopacket.LayerDump(ip4))
 
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 	if _, err := VpnInstance.Write(data); err != nil {
