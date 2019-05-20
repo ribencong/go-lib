@@ -129,6 +129,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 		bypass := ByPassInst().Hit(ip4.DstIP)
 		if !bypass {
 			srvPort = t2s.proxyPort
+			log.Println("This session will be proxy:", ip4.DstIP, tcp.DstPort)
 		}
 
 		s = newSession(ip4, tcp, srvPort, bypass)

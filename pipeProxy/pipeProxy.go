@@ -5,12 +5,9 @@ import (
 	"github.com/ribencong/go-lib/wallet"
 	"log"
 	"net"
-	"strconv"
 )
 
 type PipeProxy struct {
-	serverIP   string
-	serverPort int
 	*net.TCPListener
 	wallet *wallet.Wallet
 	tunSrc Tun2Pipe
@@ -21,24 +18,12 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 	if e != nil {
 		return nil, e
 	}
-	ip, port, _ := net.SplitHostPort(addr)
-	p, _ := strconv.Atoi(port)
 	ap := &PipeProxy{
-		serverIP:    ip,
-		serverPort:  p,
 		TCPListener: l.(*net.TCPListener),
 		wallet:      w,
 		tunSrc:      t,
 	}
 	return ap, nil
-}
-
-func (pp *PipeProxy) GetServeIP() string {
-	return pp.serverIP
-}
-
-func (pp *PipeProxy) GetServePort() int {
-	return pp.serverPort
 }
 
 func (pp *PipeProxy) Proxying() {
@@ -54,7 +39,7 @@ func (pp *PipeProxy) Proxying() {
 			return
 		}
 
-		fmt.Println("\nNew system proxy request:", conn.RemoteAddr().String())
+		fmt.Println("\nNew proxy request:", conn.RemoteAddr().String())
 		conn.(*net.TCPConn).SetKeepAlive(true)
 		go pp.consume(conn)
 	}
@@ -68,7 +53,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
 		return
 	}
-	fmt.Println("\n Socks Proxy handshake success:", tgtAddr)
+	fmt.Println("\n Proxying target address:", tgtAddr)
 
 	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {
