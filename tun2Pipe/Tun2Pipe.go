@@ -1,6 +1,7 @@
 package tun2Pipe
 
 import (
+	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"io"
@@ -71,6 +72,10 @@ func (t2s *Tun2Socks) GetTarget(conn net.Conn) string {
 	s := t2s.GetSession(keyPort)
 	if s == nil {
 		return ""
+	}
+
+	if len(s.HostName) != 0 {
+		return fmt.Sprintf("%s:%d", s.HostName, s.RemotePort)
 	}
 
 	addr := &net.TCPAddr{
@@ -149,6 +154,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	if s.byteSent == 0 && tcpLen > 10 {
 		host := ParseHost(tcp.Payload)
 		if len(host) > 0 {
+			log.Println("Session host success:", host)
 			s.HostName = host
 		}
 	}

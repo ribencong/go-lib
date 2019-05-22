@@ -108,14 +108,13 @@ func PrintFlow(pre string, ip4 *layers.IPv4, tcp *layers.TCP) {
 }
 
 func ParseHost(data []byte) string {
-	fmt.Printf("---===>>>:%c %0x\n", data[0], data[0])
 	switch data[0] {
 	//GET,HEAD,POST,PUT,DELETE,OPTIONS,TRACE,CONNECT
 	case 'G', 'H', 'P', 'D', 'O', 'T', 'C':
 		{
 			reader := bufio.NewReader(bytes.NewReader(data))
 			if r, _ := http.ReadRequest(reader); r != nil {
-				println("Http host:", r.Host)
+				println("---===>>>Success host:", r.Host)
 				return r.Host
 			}
 		}
@@ -143,7 +142,7 @@ func getSNI(data []byte) string {
 		return ""
 	}
 
-	println("---===>>>Success get host name:", string(sni))
+	log.Println("---===>>>Success SNI:", string(sni))
 	return string(sni)
 }
 
