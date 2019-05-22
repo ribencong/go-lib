@@ -23,7 +23,10 @@ var conf = &wallet.WConfig{
 }
 
 func main() {
-	test8()
+	b := []byte{
+		'G', 'H', 'P',
+	}
+	fmt.Printf("%c", b[0])
 }
 func test9() {
 	tt, err := base64.StdEncoding.DecodeString("")

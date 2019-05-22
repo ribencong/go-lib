@@ -16,6 +16,9 @@ type Session struct {
 	RemoteIP   net.IP
 	RemotePort int
 	ServerPort int
+	byteSent   int
+	packetSent int
+	HostName   string
 }
 
 func (s *Session) ToString() string {
