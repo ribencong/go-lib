@@ -55,6 +55,8 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	}
 	fmt.Println("\n Proxying target address:", tgtAddr)
 
+	//TODO::match PAC file
+
 	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {
 		fmt.Println("Create pipe failed:", tgtAddr)

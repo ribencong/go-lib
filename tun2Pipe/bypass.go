@@ -51,5 +51,7 @@ func (bp *ByPassIPs) Hit(ip net.IP) bool {
 		}
 	}
 
+	//TODO:: pac domain list
+
 	return false
 }
