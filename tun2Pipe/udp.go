@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"log"
 	"math"
 	"net"
 	"sync"
@@ -27,32 +26,32 @@ func (s *UdpSession) ProxyOut(data []byte) (int, error) {
 }
 
 func (s *UdpSession) WaitingIn() {
-	defer log.Printf("Udp session(%s) reading end:", s.ID)
+	defer VpnInstance.Log(fmt.Sprintf("Udp session(%s) reading end:", s.ID))
 	defer s.Close()
 
 	buf := make([]byte, math.MaxInt16)
 	for {
 		n, rAddr, e := s.ReadFromUDP(buf)
 		if e != nil {
-			log.Printf("Udp session(%s) read err:%s", s.ID, e)
+			VpnInstance.Log(fmt.Sprintf("Udp session(%s) read err:%s", s.ID, e))
 			return
 		}
 
-		log.Printf("\nFrom(%s) UDP Received:%02x", rAddr.String(), buf[:n])
+		VpnInstance.Log(fmt.Sprintf("\nFrom(%s) UDP Received:%02x", rAddr.String(), buf[:n]))
 		packet := gopacket.NewPacket(buf[:n], layers.LayerTypeDNS, gopacket.Default)
 		if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
-			log.Println("---------- DNS answer!-------")
+			VpnInstance.Log(fmt.Sprintln("---------- DNS answer!-------"))
 			dns, _ := dnsLayer.(*layers.DNS)
 			for _, a := range dns.Answers {
-				log.Printf("name:%s -> ip:%s", a.Name, a.IP)
+				VpnInstance.Log(fmt.Sprintf("name:%s -> ip:%s", a.Name, a.IP))
 			}
-			log.Println("-----------------------------------")
+			VpnInstance.Log(fmt.Sprintln("-----------------------------------"))
 		}
 
 		data := WrapIPPacketForUdp(rAddr.IP, s.SrcIP, rAddr.Port, s.SrcPort, buf[:n])
 
 		if _, e := VpnInstance.Write(data); e != nil {
-			log.Printf("Udp session(%s) write to tun err:%s", s.ID, e)
+			VpnInstance.Log(fmt.Sprintf("Udp session(%s) write to tun err:%s", s.ID, e))
 			continue
 		}
 		s.UpdateTime()
@@ -99,7 +98,7 @@ func (up *UdpProxy) ReceivePacket(ip4 *layers.IPv4, udp *layers.UDP) {
 
 	_, e := s.ProxyOut(udp.Payload)
 	if e != nil {
-		log.Println("Udp Session proxy out err:", e)
+		VpnInstance.Log(fmt.Sprintln("Udp Session proxy out err:", e))
 		up.removeSession(s)
 	}
 
@@ -111,11 +110,11 @@ func (up *UdpProxy) ReceivePacket(ip4 *layers.IPv4, udp *layers.UDP) {
 			return
 		}
 
-		log.Println("This is a DNS question!========>")
+		VpnInstance.Log(fmt.Sprintln("This is a DNS question!========>"))
 		for _, q := range dns.Questions {
-			log.Printf("%s-%s", q.Name, q.Class.String())
+			VpnInstance.Log(fmt.Sprintf("%s-%s", q.Name, q.Class.String()))
 		}
-		log.Println("================================>")
+		VpnInstance.Log(fmt.Sprintln("================================>"))
 	}
 }
 
@@ -137,7 +136,7 @@ func (up *UdpProxy) newSession(ip4 *layers.IPv4, udp *layers.UDP) *UdpSession {
 	tarAddr := fmt.Sprintf("%s:%d", ip4.DstIP, udp.DstPort)
 	c, e := d.Dial("udp", tarAddr)
 	if e != nil {
-		log.Println("Udp session create err:", e, tarAddr)
+		VpnInstance.Log(fmt.Sprintln("Udp session create err:", e, tarAddr))
 		return nil
 	}
 
@@ -173,14 +172,14 @@ func (up *UdpProxy) removeSession(s *UdpSession) {
 }
 
 func (up *UdpProxy) ExpireOldSession() {
-	log.Println("Udp proxy session aging start >>>>>>")
+	VpnInstance.Log(fmt.Sprintln("Udp proxy session aging start >>>>>>"))
 
 	for {
 		select {
 		case <-time.After(UDPSessionTimeOut):
 			for _, s := range up.NatSession {
 				if s.IsExpire() {
-					log.Printf("session(%s) expired", s.ID)
+					VpnInstance.Log(fmt.Sprintf("session(%s) expired", s.ID))
 					up.removeSession(s)
 				}
 			}

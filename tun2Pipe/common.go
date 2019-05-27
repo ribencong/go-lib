@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"log"
 	"net"
 	"net/http"
 	"syscall"
@@ -29,7 +28,7 @@ func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byt
 	}
 
 	if err := udp.SetNetworkLayerForChecksum(ip4); err != nil {
-		log.Println("Udp Wrap ip packet check sum err:", err)
+		VpnInstance.Log(fmt.Sprintln("Udp Wrap ip packet check sum err:", err))
 		return nil
 	}
 
@@ -40,7 +39,7 @@ func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byt
 	}
 
 	if err := gopacket.SerializeLayers(b, opt, ip4, udp, gopacket.Payload(payload)); err != nil {
-		log.Println("Wrap dns to ip packet  err:", err)
+		VpnInstance.Log(fmt.Sprintln("Wrap dns to ip packet  err:", err))
 		return nil
 	}
 
@@ -50,12 +49,12 @@ func WrapIPPacketForUdp(srcIp, DstIp net.IP, srcPort, dstPort int, payload []byt
 func ProtectConn(conn syscall.Conn) error {
 	rawConn, err := conn.SyscallConn()
 	if err != nil {
-		log.Println("Protect Err:", err)
+		VpnInstance.Log(fmt.Sprintln("Protect Err:", err))
 		return err
 	}
 
 	if err := rawConn.Control(Protector); err != nil {
-		log.Println("Protect Err:", err)
+		VpnInstance.Log(fmt.Sprintln("Protect Err:", err))
 		return err
 	}
 
@@ -65,7 +64,7 @@ func ProtectConn(conn syscall.Conn) error {
 func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
 
 	if err := tcp.SetNetworkLayerForChecksum(ip4); err != nil {
-		println("set tcp layer check sum err:", err)
+		VpnInstance.Log(fmt.Sprintln("set tcp layer check sum err:", err))
 		return nil
 	}
 
@@ -76,7 +75,7 @@ func ChangePacket(ip4 *layers.IPv4, tcp *layers.TCP) []byte {
 	}
 
 	if err := gopacket.SerializeLayers(b, opt, ip4, tcp, gopacket.Payload(tcp.Payload)); err != nil {
-		log.Println("Wrap Tcp to ip packet  err:", err)
+		VpnInstance.Log(fmt.Sprintln("Wrap Tcp to ip packet  err:", err))
 		return nil
 	}
 
@@ -90,19 +89,19 @@ func PrintFlow(pre string, ip4 *layers.IPv4, tcp *layers.TCP) {
 		ip4.DstIP, tcp.DstPort)
 
 	if tcp.SYN {
-		fmt.Print(" SYN")
+		VpnInstance.Log(fmt.Sprintln(" SYN"))
 	}
 	if tcp.ACK {
-		fmt.Print(" ACK")
+		VpnInstance.Log(fmt.Sprintln(" ACK"))
 	}
 	if tcp.FIN {
-		fmt.Print(" FIN")
+		VpnInstance.Log(fmt.Sprintln(" FIN"))
 	}
 	if tcp.PSH {
-		fmt.Print(" PSH")
+		VpnInstance.Log(fmt.Sprintln(" PSH"))
 	}
 	if tcp.RST {
-		fmt.Print(" RST")
+		VpnInstance.Log(fmt.Sprintln(" RST"))
 	}
 	fmt.Println()
 }
@@ -114,7 +113,7 @@ func ParseHost(data []byte) string {
 		{
 			reader := bufio.NewReader(bytes.NewReader(data))
 			if r, _ := http.ReadRequest(reader); r != nil {
-				println("---===>>>Success host:", r.Host)
+				VpnInstance.Log(fmt.Sprintln("---===>>>Success host:", r.Host))
 				return r.Host
 			}
 		}
@@ -142,7 +141,7 @@ func getSNI(data []byte) string {
 		return ""
 	}
 
-	log.Println("---===>>>Success SNI:", string(sni))
+	VpnInstance.Log(fmt.Sprintln("---===>>>Success SNI:", string(sni)))
 	return string(sni)
 }
 

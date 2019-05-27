@@ -1,7 +1,7 @@
 package tun2Pipe
 
 import (
-	"log"
+	"fmt"
 	"net"
 	"strings"
 	"sync"
@@ -35,7 +35,7 @@ func (bp *ByPassIPs) Load(IPS string) {
 		bp.Masks[subNet.Mask.String()] = subNet.Mask
 	}
 
-	log.Printf("Total bypass ips:%d groups:%d \n", len(bp.IP), len(bp.Masks))
+	VpnInstance.Log(fmt.Sprintf("Total bypass ips:%d groups:%d \n", len(bp.IP), len(bp.Masks)))
 }
 
 func (bp *ByPassIPs) Hit(ip net.IP) bool {
@@ -46,7 +46,7 @@ func (bp *ByPassIPs) Hit(ip net.IP) bool {
 	for _, mask := range bp.Masks {
 		maskIP := ip.Mask(mask)
 		if _, ok := bp.IP[maskIP.String()]; ok {
-			log.Printf("\nHit success ip:%s->ip mask:%s", ip, maskIP)
+			VpnInstance.Log(fmt.Sprintf("\nHit success ip:%s->ip mask:%s", ip, maskIP))
 			return true
 		}
 	}

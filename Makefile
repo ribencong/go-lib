@@ -18,7 +18,7 @@ a:
 	gomobile bind -v -o $(BINDIR)/dss.aar -target=android github.com/ribencong/go-lib/android
 
 i:
-	gomobile bind -v -o $(BINDIR)/iosDelegate.framework -target=ios github.com/ribencong/go-lib/ios
+	gomobile bind -v -o $(BINDIR)/iosLib.framework -target=ios github.com/ribencong/go-lib/ios
 
 clean:
 	gomobile clean

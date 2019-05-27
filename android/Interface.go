@@ -1,4 +1,4 @@
-package tun2socksA
+package androidLib
 
 import (
 	"fmt"

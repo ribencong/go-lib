@@ -5,7 +5,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"io"
-	"log"
 	"math"
 	"net"
 	"strconv"
@@ -30,9 +29,9 @@ type Tun2Socks struct {
 }
 
 type VpnDelegate interface {
-	ReadBuff() []byte
 	ByPass(fd int32) bool
 	io.Writer
+	Log(str string)
 }
 
 var VpnInstance VpnDelegate = nil
@@ -62,7 +61,6 @@ func New(proxyAddr string) (*Tun2Socks, error) {
 	}
 
 	go tsc.Pivoting()
-	go tsc.ReadTunData()
 
 	return tsc, nil
 }
@@ -86,40 +84,38 @@ func (t2s *Tun2Socks) GetTarget(conn net.Conn) string {
 	return addr.String()
 }
 
-func (t2s *Tun2Socks) ReadTunData() {
-	for {
-		buf := VpnInstance.ReadBuff()
-		if len(buf) == 0 {
-			time.Sleep(time.Millisecond * 100)
-			continue
-		}
-		var ip4 *layers.IPv4 = nil
+func (t2s *Tun2Socks) ReadPacketData(buf []byte) {
+	//buf := VpnInstance.ReadBuff()
+	//if len(buf) == 0 {
+	//	time.Sleep(time.Millisecond * 100)
+	//	continue
+	//}
+	var ip4 *layers.IPv4 = nil
 
-		packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
-		if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
-			ip4 = ip4Layer.(*layers.IPv4)
-		} else {
-			log.Println("Unsupported network layer :")
-			continue
-		}
-
-		var tcp *layers.TCP = nil
-		if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
-			tcp = tcpLayer.(*layers.TCP)
-			t2s.ProcessTcpPacket(ip4, tcp)
-			//println(packet.Dump())
-			continue
-		}
-
-		var udp *layers.UDP = nil
-		if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
-			udp = udpLayer.(*layers.UDP)
-			t2s.udpProxy.ReceivePacket(ip4, udp)
-			continue
-		}
-
-		log.Println("Unsupported transport layer :", ip4.Protocol.String())
+	packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
+	if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
+		ip4 = ip4Layer.(*layers.IPv4)
+	} else {
+		VpnInstance.Log("Unsupported network layer :")
+		return
 	}
+
+	var tcp *layers.TCP = nil
+	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+		tcp = tcpLayer.(*layers.TCP)
+		t2s.ProcessTcpPacket(ip4, tcp)
+		VpnInstance.Log(packet.Dump())
+		return
+	}
+
+	var udp *layers.UDP = nil
+	if udpLayer := packet.Layer(layers.LayerTypeUDP); udpLayer != nil {
+		udp = udpLayer.(*layers.UDP)
+		t2s.udpProxy.ReceivePacket(ip4, udp)
+		return
+	}
+
+	VpnInstance.Log(fmt.Sprintf("Unsupported transport layer :%s", ip4.Protocol.String()))
 }
 
 func (t2s *Tun2Socks) Close() {
@@ -135,7 +131,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 		bypass := ByPassInst().Hit(ip4.DstIP)
 		if !bypass {
 			srvPort = t2s.proxyPort
-			log.Println("This session will be proxy:", ip4.DstIP, tcp.DstPort)
+			VpnInstance.Log(fmt.Sprintln("This session will be proxy:", ip4.DstIP, tcp.DstPort))
 		}
 
 		s = newSession(ip4, tcp, srvPort, bypass)
@@ -147,14 +143,14 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	s.UPTime = time.Now()
 	s.packetSent++
 	if s.packetSent == 2 && tcpLen == 0 {
-		log.Printf("Discard the ack:%t\n syn:%t psh:%t", tcp.ACK, tcp.SYN, tcp.PSH)
+		VpnInstance.Log(fmt.Sprintf("Discard the ack:%t\n syn:%t psh:%t", tcp.ACK, tcp.SYN, tcp.PSH))
 		return
 	}
 
 	if s.byteSent == 0 && tcpLen > 10 {
 		host := ParseHost(tcp.Payload)
 		if len(host) > 0 {
-			log.Println("Session host success:", host)
+			VpnInstance.Log(fmt.Sprintln("Session host success:", host))
 			s.HostName = host
 		}
 	}
@@ -167,7 +163,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 
 	if _, err := VpnInstance.Write(data); err != nil {
-		log.Println("-=->tun2Proxy write to tun err:", err)
+		VpnInstance.Log(fmt.Sprintln("-=->tun2Proxy write to tun err:", err))
 		return
 	}
 	s.byteSent += tcpLen
@@ -183,7 +179,7 @@ func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 	if _, err := VpnInstance.Write(data); err != nil {
-		log.Println("<-=-proxy2Tun write to tun err:", err)
+		VpnInstance.Log(fmt.Sprintln("<-=-proxy2Tun write to tun err:", err))
 		return
 	}
 }

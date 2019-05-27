@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/google/gopacket/layers"
 	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -36,7 +35,7 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP, srvPort int, bp bool) *Sessio
 		byPass:     bp,
 	}
 
-	log.Println("New Tcp Session:", s.ToString())
+	VpnInstance.Log(fmt.Sprintln("New Tcp Session:", s.ToString()))
 	return s
 }
 
@@ -47,13 +46,13 @@ type ProxyPipe struct {
 
 func (pp *ProxyPipe) Right2Left() {
 	if _, err := io.Copy(pp.Left, pp.Right); err != nil {
-		log.Println("Tun Proxy pipe right 2 left finished:", err)
+		VpnInstance.Log(fmt.Sprintln("Tun Proxy pipe right 2 left finished:", err))
 	}
 }
 
 func (pp *ProxyPipe) WriteTunnel(buf []byte) {
 	if _, e := pp.Right.Write(buf); e != nil {
-		log.Println("Tun Proxy pipe left 2 right err:", e)
+		VpnInstance.Log(fmt.Sprintln("Tun Proxy pipe left 2 right err:", e))
 		pp.Close()
 	}
 }

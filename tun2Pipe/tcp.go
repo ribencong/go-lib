@@ -3,7 +3,6 @@ package tun2Pipe
 import (
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net"
 	"syscall"
@@ -11,15 +10,15 @@ import (
 
 func (t2s *Tun2Socks) Pivoting() {
 
-	defer log.Println("TunTcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr())
+	defer VpnInstance.Log(fmt.Sprintln("TunTcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr()))
 	defer t2s.innerTcpPivot.Close()
 
-	log.Println("TunTcp Proxy start......", t2s.innerTcpPivot.Addr())
+	VpnInstance.Log(fmt.Sprintln("TunTcp Proxy start......", t2s.innerTcpPivot.Addr()))
 
 	for {
 		conn, err := t2s.innerTcpPivot.Accept()
 		if err != nil {
-			log.Println("Accept:", err)
+			VpnInstance.Log(fmt.Sprintln("Accept:", err))
 			return
 		}
 		//log.Println("Accept:", conn.RemoteAddr(), conn.LocalAddr())
@@ -36,11 +35,11 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 	port := leftConn.RemoteAddr().(*net.TCPAddr).Port
 	s := t2s.GetSession(port)
 	if s == nil {
-		log.Println("Can't proxy this one:", leftConn.RemoteAddr())
+		VpnInstance.Log(fmt.Sprintln("Can't proxy this one:", leftConn.RemoteAddr()))
 		return
 	}
 
-	log.Println("Tun New conn for tcp session:", s.ToString())
+	VpnInstance.Log(fmt.Sprintln("Tun New conn for tcp session:", s.ToString()))
 
 	tgtAddr := fmt.Sprintf("%s:%d", s.RemoteIP, s.RemotePort)
 	buff := make([]byte, math.MaxInt16)
@@ -49,7 +48,7 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 		n, e := leftConn.Read(buff)
 		if e != nil {
 			if e != io.EOF {
-				log.Println("Tun Read from left conn err:", e)
+				VpnInstance.Log(fmt.Sprintln("Tun Read from left conn err:", e))
 			}
 			return
 		}
@@ -64,12 +63,12 @@ func (t2s *Tun2Socks) process(conn net.Conn) {
 			}
 			c, e := d.Dial("tcp", tgtAddr)
 			if e != nil {
-				log.Println("Dial remote err:", e)
+				VpnInstance.Log(fmt.Sprintln("Dial remote err:", e))
 				return
 			}
 			rightConn := c.(*net.TCPConn)
 			rightConn.SetKeepAlive(true)
-			log.Printf("TCP:Tun Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString())
+			VpnInstance.Log(fmt.Sprintf("TCP:Tun Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString()))
 
 			s.Pipe = &ProxyPipe{
 				Left:  leftConn,
