@@ -8,7 +8,7 @@ import (
 	"syscall"
 )
 
-func (t2s *Tun2Socks) Pivoting() {
+func (t2s *Tun2Pipe) Pivoting() {
 
 	defer VpnInstance.Log(fmt.Sprintln("TunTcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr()))
 	defer t2s.innerTcpPivot.Close()
@@ -26,7 +26,7 @@ func (t2s *Tun2Socks) Pivoting() {
 	}
 }
 
-func (t2s *Tun2Socks) process(conn net.Conn) {
+func (t2s *Tun2Pipe) process(conn net.Conn) {
 	leftConn := conn.(*net.TCPConn)
 	leftConn.SetKeepAlive(true)
 

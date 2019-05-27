@@ -19,7 +19,7 @@ const (
 	InnerPivotPort    = 51414
 )
 
-type Tun2Socks struct {
+type Tun2Pipe struct {
 	sync.RWMutex
 	innerTcpPivot *net.TCPListener
 	SessionCache  map[int]*Session
@@ -40,7 +40,7 @@ type ConnProtect func(fd uintptr)
 
 var Protector ConnProtect
 
-func New(proxyAddr string) (*Tun2Socks, error) {
+func New(proxyAddr string) (*Tun2Pipe, error) {
 
 	l, e := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: InnerPivotPort,
@@ -52,7 +52,7 @@ func New(proxyAddr string) (*Tun2Socks, error) {
 	ip, port, _ := net.SplitHostPort(proxyAddr)
 	intPort, _ := strconv.Atoi(port)
 
-	tsc := &Tun2Socks{
+	tsc := &Tun2Pipe{
 		innerTcpPivot: l,
 		SessionCache:  make(map[int]*Session),
 		udpProxy:      NewUdpProxy(),
@@ -65,7 +65,7 @@ func New(proxyAddr string) (*Tun2Socks, error) {
 	return tsc, nil
 }
 
-func (t2s *Tun2Socks) GetTarget(conn net.Conn) string {
+func (t2s *Tun2Pipe) GetTarget(conn net.Conn) string {
 	keyPort := conn.RemoteAddr().(*net.TCPAddr).Port
 	s := t2s.GetSession(keyPort)
 	if s == nil {
@@ -84,15 +84,17 @@ func (t2s *Tun2Socks) GetTarget(conn net.Conn) string {
 	return addr.String()
 }
 
-func (t2s *Tun2Socks) ReadPacketData(buf []byte) {
+func (t2s *Tun2Pipe) ReadPacketData(buf []byte) {
 	//buf := VpnInstance.ReadBuff()
 	//if len(buf) == 0 {
 	//	time.Sleep(time.Millisecond * 100)
 	//	continue
 	//}
 	var ip4 *layers.IPv4 = nil
-
 	packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
+
+	VpnInstance.Log(packet.Dump())
+
 	if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
 		ip4 = ip4Layer.(*layers.IPv4)
 	} else {
@@ -104,7 +106,6 @@ func (t2s *Tun2Socks) ReadPacketData(buf []byte) {
 	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 		tcp = tcpLayer.(*layers.TCP)
 		t2s.ProcessTcpPacket(ip4, tcp)
-		VpnInstance.Log(packet.Dump())
 		return
 	}
 
@@ -118,10 +119,10 @@ func (t2s *Tun2Socks) ReadPacketData(buf []byte) {
 	VpnInstance.Log(fmt.Sprintf("Unsupported transport layer :%s", ip4.Protocol.String()))
 }
 
-func (t2s *Tun2Socks) Close() {
+func (t2s *Tun2Pipe) Close() {
 }
 
-func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
+func (t2s *Tun2Pipe) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 
 	//PrintFlow("-=->tun2Proxy", ip4, tcp)
 	srcPort := int(tcp.SrcPort)
@@ -169,7 +170,7 @@ func (t2s *Tun2Socks) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
 	s.byteSent += tcpLen
 }
 
-func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
+func (t2s *Tun2Pipe) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 	//PrintFlow("<-=-proxy2Tun", ip4, tcp)
 
 	ip4.SrcIP = ip4.DstIP
@@ -184,7 +185,7 @@ func (t2s *Tun2Socks) proxy2Tun(ip4 *layers.IPv4, tcp *layers.TCP, rPort int) {
 	}
 }
 
-func (t2s *Tun2Socks) ProcessTcpPacket(ip4 *layers.IPv4, tcp *layers.TCP) {
+func (t2s *Tun2Pipe) ProcessTcpPacket(ip4 *layers.IPv4, tcp *layers.TCP) {
 	srcPort := int(tcp.SrcPort)
 	if srcPort == InnerPivotPort ||
 		srcPort == t2s.proxyPort {
@@ -198,19 +199,19 @@ func (t2s *Tun2Socks) ProcessTcpPacket(ip4 *layers.IPv4, tcp *layers.TCP) {
 	t2s.tun2Proxy(ip4, tcp)
 }
 
-func (t2s *Tun2Socks) GetSession(key int) *Session {
+func (t2s *Tun2Pipe) GetSession(key int) *Session {
 	t2s.RLock()
 	defer t2s.RUnlock()
 	return t2s.SessionCache[key]
 }
-func (t2s *Tun2Socks) AddSession(portKey int, s *Session) {
+func (t2s *Tun2Pipe) AddSession(portKey int, s *Session) {
 	t2s.Lock()
 	defer t2s.Unlock()
 	t2s.SessionCache[portKey] = s
 }
 
 //TODO:: remove the old session
-func (t2s *Tun2Socks) RemoveSession(key int) {
+func (t2s *Tun2Pipe) RemoveSession(key int) {
 	t2s.Lock()
 	defer t2s.Unlock()
 	delete(t2s.SessionCache, key)
