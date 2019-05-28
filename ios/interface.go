@@ -4,44 +4,85 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/ribencong/go-lib/tun2Pipe"
+	"github.com/ribencong/go-youPipe/service"
+	"golang.org/x/net/publicsuffix"
+	"net"
 )
 
-type VpnDelegate interface {
-	tun2Pipe.VpnDelegate
+func GetDomain(host string) string {
+
+	doamin, err := publicsuffix.EffectiveTLDPlusOne(host)
+	if err != nil {
+		return ""
+	}
+	return doamin
 }
 
-func DumpPacket(data []byte, l VpnDelegate) {
+type VpnDelegate interface {
+	Log(str string)
+}
+
+func DumpPacket(data []byte) {
 	var ip4 *layers.IPv4 = nil
 
 	packet := gopacket.NewPacket(data, layers.LayerTypeIPv4, gopacket.Default)
 	if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
 		ip4 = ip4Layer.(*layers.IPv4)
 		println(ip4.DstIP, ip4.SrcIP)
-		l.Log(packet.Dump())
+		_tunInterface.Log(packet.Dump())
 	}
 
 	var tcp *layers.TCP = nil
 	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
 		tcp = tcpLayer.(*layers.TCP)
-		l.Log(fmt.Sprintln(ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort))
+		_tunInterface.Log(fmt.Sprintln(ip4.SrcIP, tcp.SrcPort, ip4.DstIP, tcp.DstPort))
+		return
 	}
+
+	_tunInterface.Log("Unknown protocol")
 }
 
-var _tunInstance *tun2Pipe.Tun2Pipe = nil
+var _tunInterface VpnDelegate = nil
 
 func InitVPN(l VpnDelegate, addr string) {
-
-	tun2Pipe.VpnInstance = l
-
-	t, e := tun2Pipe.New(addr)
-
-	if e != nil {
-		panic(e)
-	}
-	_tunInstance = t
+	_tunInterface = l
+	newHttpServer(addr)
 }
 
-func InputPacket(data []byte) {
-	_tunInstance.ReadPacketData(data)
+func newHttpServer(addr string) {
+	conn, err := net.Listen("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			c, e := conn.Accept()
+			if e != nil {
+				_tunInterface.Log(fmt.Sprintf("Http server exit:%s", e))
+				return
+			}
+
+			go consume(c)
+		}
+	}()
+}
+
+type targetAddr struct {
+	host string
+	port int
+}
+
+func consume(c net.Conn) {
+	defer c.Close()
+	jsonConn := &service.JsonConn{Conn: c}
+	tgt := &targetAddr{}
+	if err := jsonConn.ReadJsonMsg(tgt); err != nil {
+		_tunInterface.Log(fmt.Sprintf("Http consume read err:%s", err))
+		return
+	}
+
+	if err := jsonConn.WriteJsonMsg(tgt); err != nil {
+		_tunInterface.Log(fmt.Sprintf("Http consume write err:%s", err))
+	}
 }

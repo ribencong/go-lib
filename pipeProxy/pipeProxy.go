@@ -55,7 +55,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	}
 	fmt.Println("\n Proxying target address:", tgtAddr)
 
-	//TODO::match PAC file
+	//TODO::match PAC file in ios or android logic
 
 	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {

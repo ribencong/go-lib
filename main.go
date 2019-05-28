@@ -23,10 +23,8 @@ var conf = &wallet.WConfig{
 }
 
 func main() {
-	b := []byte{
-		'G', 'H', 'P',
-	}
-	fmt.Printf("%c", b[0])
+	fmt.Println(publicsuffix.EffectiveTLDPlusOne("1-apple.com.tw"))
+
 }
 func test9() {
 	tt, err := base64.StdEncoding.DecodeString("")
