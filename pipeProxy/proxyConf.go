@@ -49,7 +49,7 @@ func (c *ProxyConfig) FindBootServers(path string) []*wallet.ServeNodeId {
 		nodes = strings.Split(c.BootNodes, "\n")
 	}
 
-	IDs := probeAllNodes(nodes, c.Saver)
+	IDs := ProbeAllNodes(nodes, c.Saver)
 
 	if len(IDs) == 0 && len(c.BootNodes) != 0 {
 
@@ -59,7 +59,7 @@ func (c *ProxyConfig) FindBootServers(path string) []*wallet.ServeNodeId {
 			println("replace boot nodes failed:", path, e)
 		}
 
-		return probeAllNodes(nodes, c.Saver)
+		return ProbeAllNodes(nodes, c.Saver)
 	}
 
 	return IDs
@@ -98,7 +98,7 @@ func LoadFromServer(url string) []string {
 	return servers
 }
 
-func probeAllNodes(paths []string, saver func(fd uintptr)) []*wallet.ServeNodeId {
+func ProbeAllNodes(paths []string, saver func(fd uintptr)) []*wallet.ServeNodeId {
 
 	var locker sync.Mutex
 	s := make([]*wallet.ServeNodeId, 0)
