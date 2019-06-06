@@ -56,18 +56,14 @@ func VerifyAccount(cipherTxt, address, password string) bool {
 	return true
 }
 
-func GenKeys(cipherTxt, address, password, minerID string) string {
+func GenPriKey(cipherTxt, address, password string) []byte {
+
 	acc, err := account.AccFromString(address, cipherTxt, password)
 	if err != nil {
-		return ""
+		fmt.Println(err)
+		return nil
 	}
+	//fmt.Println(acc.Key.PriKey)
 
-	priKey := acc.Key.PriKey
-
-	var aesKey account.PipeCryptKey
-	if err := account.GenerateAesKey(&aesKey, account.ID(minerID).ToPubKey(), priKey); err != nil {
-		return ""
-	}
-
-	return string(priKey) + Separator + string(aesKey[:])
+	return acc.Key.PriKey
 }
