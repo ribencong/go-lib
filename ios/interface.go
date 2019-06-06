@@ -67,3 +67,15 @@ func GenPriKey(cipherTxt, address, password string) []byte {
 
 	return acc.Key.PriKey
 }
+
+func GenAesKey(priKey []byte, peerID string) []byte {
+
+	var aesKey account.PipeCryptKey
+
+	if err := account.GenerateAesKey(&aesKey, account.ID(peerID).ToPubKey(), priKey); err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	return aesKey[:]
+}
