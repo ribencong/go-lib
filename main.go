@@ -3,10 +3,14 @@ package main
 import "C"
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/ribencong/go-lib/wallet"
+	"github.com/ribencong/go-youPipe/account"
+	"github.com/ribencong/go-youPipe/service"
+	"golang.org/x/crypto/ed25519"
 	"golang.org/x/net/publicsuffix"
 	"io/ioutil"
 	"net"
@@ -23,8 +27,30 @@ var conf = &wallet.WConfig{
 }
 
 func main() {
-	fmt.Println(publicsuffix.EffectiveTLDPlusOne("1-apple.com.tw"))
+	license := `{"sig":"8BeMM5+orhR4YY+TJbNw1Wg4BhAq8PSMNuFgx8Ne+I4prJPJmViY2O/OQ7i5VelN3aUR3y3ZpoQ7pFd1612GAw==","start":"2019-06-06 06:50:52","end":"2019-06-21 06:50:52","user":"YPAMynSajgK8SVgHAaFocZTT8QF2za1u9xmS5TQpnqoTjX"}`
+	l, e := service.ParseLicense(license)
+	if e != nil {
+		panic(e)
+	}
 
+	data, err := json.Marshal(l)
+	if err != nil {
+		panic(err)
+	}
+
+	acc, err := account.AccFromString("YPAMynSajgK8SVgHAaFocZTT8QF2za1u9xmS5TQpnqoTjX",
+		"kBnUbRqGnreZvkDhgVkYSR6L4oc1izBwaKdo99uWnijRwKqyL8zhiZX8cwVGxjerfhde8MjPjnHgRfTjWyQ5zUYGheJrLxrfVTPWgFb4YQ3Nh",
+		"12345678")
+	if err != nil {
+		panic(err)
+	}
+
+	sign := ed25519.Sign(acc.Key.PriKey, data)
+	str := base64.StdEncoding.EncodeToString(sign)
+	println(str)
+}
+func test10() {
+	fmt.Println(publicsuffix.EffectiveTLDPlusOne("1-apple.com.tw"))
 }
 func test9() {
 	tt, err := base64.StdEncoding.DecodeString("")
