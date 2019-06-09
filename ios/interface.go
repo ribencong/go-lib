@@ -7,10 +7,16 @@ import (
 	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
+	"io/ioutil"
+	"net/http"
 	"strings"
 )
 
-const Separator = "@@@"
+const (
+	Separator = "@@@"
+
+	DefaultDomainUrl = "https://raw.githubusercontent.com/youpipe/ypctorrent/master/gfw.torrent"
+)
 
 func LoadNodes() string {
 
@@ -78,4 +84,23 @@ func GenAesKey(priKey []byte, peerID string) []byte {
 	}
 
 	return aesKey[:]
+}
+
+func LoadDomain(url string) string {
+	if len(url) == 0 {
+		url = DefaultDomainUrl
+	}
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	return string(body)
 }
