@@ -2,6 +2,8 @@ package iosLib
 
 import "C"
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"fmt"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ribencong/go-lib/pipeProxy"
@@ -103,4 +105,27 @@ func LoadDomain(url string) string {
 		return ""
 	}
 	return string(body)
+}
+
+func TestAes(priKey []byte, iv []byte, data []byte) []byte {
+	block, err := aes.NewCipher(priKey)
+	if err != nil {
+		fmt.Println("create cipher for connection err:", err)
+		return nil
+	}
+
+	Coder := cipher.NewCFBEncrypter(block, iv)
+	Coder.XORKeyStream(data, data)
+
+	fmt.Printf(" encrypter:%02x\n\n", data)
+
+	Decoder := cipher.NewCFBDecrypter(block, iv)
+	Decoder.XORKeyStream(data, data)
+	fmt.Printf(" decrypter:%02x\n\n", data)
+
+	Coder2 := cipher.NewCFBEncrypter(block, iv)
+	Coder2.XORKeyStream(data, data)
+	fmt.Printf(" 222--->encrypter:%02x\n\n", data)
+
+	return data
 }
