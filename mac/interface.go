@@ -110,6 +110,7 @@ func LibProxyRun() {
 	fmt.Print("start proxy success.....\n")
 
 	curProxy.Proxying()
+	curProxy.Finish()
 	curProxy = nil
 }
 

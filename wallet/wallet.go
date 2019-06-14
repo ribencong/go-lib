@@ -54,8 +54,6 @@ type Wallet struct {
 
 func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 
-	fmt.Printf("Wallet config:%s", conf.ToString())
-
 	acc, err := account.AccFromString(conf.BCAddr, conf.Cipher, password)
 	if err != nil {
 		return nil, err
@@ -83,7 +81,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		return nil, err
 	}
 
-	fmt.Println("\nCreate aes key success")
+	fmt.Printf("\nCreate aes key success, Wallet config:%s", conf.ToString())
 
 	if err := w.createPayChannel(); err != nil {
 		log.Println("Create payment channel err:", err)
@@ -98,7 +96,9 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 
 func (w *Wallet) createPayChannel() error {
 
+	fmt.Printf("When createPayChannel %s", w.curService.ToString())
 	addr := w.curService.TONetAddr()
+	fmt.Printf("After createPayChannel %s", w.curService.ToString())
 	conn, err := w.getOuterConn(addr)
 	if err != nil {
 		return err
