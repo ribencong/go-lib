@@ -54,6 +54,8 @@ type Wallet struct {
 
 func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 
+	fmt.Printf("Wallet config:%s", conf.ToString())
+
 	acc, err := account.AccFromString(conf.BCAddr, conf.Cipher, password)
 	if err != nil {
 		return nil, err
