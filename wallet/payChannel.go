@@ -28,9 +28,9 @@ func (w *Wallet) Running() {
 		fmt.Printf("(%s)Got new bill:%s",
 			time.Now().Format(SysTimeFormat), bill.String())
 
-		fmt.Printf("\nPipeBill Wallet socks ID:%s", w.minerID)
-
-		proof, err := w.signBill(bill, w.minerID, w.Key.PriKey)
+		pubKey := account.ID(w.minerID)
+		fmt.Printf("\nPipeBill Wallet socks ID:%s key:%s", w.minerID, pubKey)
+		proof, err := w.signBill(bill, pubKey, w.Key.PriKey)
 		if err != nil {
 			w.fatalErr <- err
 			return
