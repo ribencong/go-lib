@@ -3,7 +3,6 @@ package wallet
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ribencong/go-youPipe/network"
 	"github.com/ribencong/go-youPipe/service"
 	"log"
 	"net"
@@ -114,13 +113,12 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 }
 
 func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
-	fmt.Printf("\nconnectSockServer Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
-	port := w.curService.ID.ToServerPort()
-	addr := network.JoinHostPort(w.curService.IP, port)
 
-	conn, err := w.getOuterConn(addr)
+	fmt.Printf("\nconnectSockServer Wallet socks ID addr:%s \n", w.minerAddr)
+
+	conn, err := w.getOuterConn(w.minerAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", addr, err)
+		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", w.minerAddr, err)
 	}
 	conn.(*net.TCPConn).SetKeepAlive(true)
 	return &service.JsonConn{conn}, nil

@@ -46,10 +46,11 @@ type Wallet struct {
 	fatalErr chan error
 	sysSaver func(fd uintptr)
 
-	payConn    *service.JsonConn
-	aesKey     account.PipeCryptKey
-	license    *service.License
-	curService *ServeNodeId
+	payConn   *service.JsonConn
+	aesKey    account.PipeCryptKey
+	license   *service.License
+	minerID   account.ID
+	minerAddr string
 }
 
 func NewWallet(conf *WConfig, password string) (*Wallet, error) {
@@ -70,14 +71,13 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		return nil, fmt.Errorf("license and account address are not same")
 	}
 	w := &Wallet{
-		Account:    acc,
-		fatalErr:   make(chan error, 5),
-		license:    l,
-		curService: conf.ServerId,
-		sysSaver:   conf.Saver,
+		Account:   acc,
+		fatalErr:  make(chan error, 5),
+		license:   l,
+		minerID:   conf.ServerId.ID,
+		sysSaver:  conf.Saver,
+		minerAddr: conf.ServerId.TONetAddr(),
 	}
-
-	fmt.Printf("\nNewWallet Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
 
 	if err := w.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
 		return nil, err
@@ -95,9 +95,9 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 }
 
 func (w *Wallet) createPayChannel() error {
-	fmt.Printf("\ncreatePayChannel Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
-	addr := w.curService.TONetAddr()
-	conn, err := w.getOuterConn(addr)
+	fmt.Printf("\ncreatePayChannel Wallet socks ID addr:%s ", w.minerAddr)
+
+	conn, err := w.getOuterConn(w.minerAddr)
 	if err != nil {
 		return err
 	}

@@ -115,14 +115,14 @@ func (obj *rfcObj) tcpMethod() (err error) {
 		return err
 	}
 
-	fmt.Printf("tcpMethod 1- %x", obj.buffer[:2])
+	//fmt.Printf("tcpMethod 1- %x", obj.buffer[:2])
 
 	mLen := int(obj.buffer[1])
 	if mLen > 0 {
 		if _, err = io.ReadFull(obj.conn, obj.buffer[:mLen]); err != nil {
 			return err
 		}
-		fmt.Printf("tcpMethod 2- %x", obj.buffer[:mLen])
+		//fmt.Printf("tcpMethod 2- %x", obj.buffer[:mLen])
 	}
 
 	//method 0 sock version 5
@@ -188,7 +188,7 @@ func (obj *rfcObj) request() (err error) {
 		return
 	}
 
-	fmt.Printf("request 1- %x", obj.buffer[:4])
+	//fmt.Printf("request 1- %x", obj.buffer[:4])
 
 	obj.cmd = obj.buffer[1]
 	aType := obj.buffer[3]
@@ -213,7 +213,7 @@ func (obj *rfcObj) request() (err error) {
 		return
 	}
 
-	fmt.Printf("request 2 -len=%d, data= %x", addLen, obj.buffer[:addLen+2])
+	//fmt.Printf("request 2 -len=%d, data= %x", addLen, obj.buffer[:addLen+2])
 
 	host := string(obj.buffer[:addLen])
 	if len(host) < 8 {
