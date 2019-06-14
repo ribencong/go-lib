@@ -119,7 +119,7 @@ func LibStopClient() {
 		return
 	}
 
-	curProxy.Close()
+	curProxy.Finish()
 	curProxy = nil
 
 	return

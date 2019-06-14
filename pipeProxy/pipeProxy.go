@@ -68,3 +68,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 
 	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
 }
+func (pp *PipeProxy) Finish() {
+	pp.TCPListener.Close()
+	pp.wallet.Close()
+}

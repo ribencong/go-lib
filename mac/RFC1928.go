@@ -115,13 +115,16 @@ func (obj *rfcObj) tcpMethod() (err error) {
 		return err
 	}
 
-	//logger.Debugf("tcpMethod 1- %x", obj.buffer)
+	fmt.Printf("tcpMethod 1- %x", obj.buffer[:2])
 
-	mLen := obj.buffer[1]
-	if _, err = io.ReadFull(obj.conn, obj.buffer[:mLen]); err != nil {
-		return err
+	mLen := int(obj.buffer[1])
+	if mLen > 0 {
+		if _, err = io.ReadFull(obj.conn, obj.buffer[:mLen]); err != nil {
+			return err
+		}
+		fmt.Printf("tcpMethod 2- %x", obj.buffer[:mLen])
 	}
-	//logger.Debugf("tcpMethod 2- %x", obj.buffer)
+
 	//method 0 sock version 5
 	if _, err = obj.conn.Write([]byte{5, 0}); err != nil {
 		return err
@@ -185,7 +188,7 @@ func (obj *rfcObj) request() (err error) {
 		return
 	}
 
-	//logger.Debugf("request 1- %x", obj.buffer)
+	fmt.Printf("request 1- %x", obj.buffer[:4])
 
 	obj.cmd = obj.buffer[1]
 	aType := obj.buffer[3]
@@ -210,7 +213,7 @@ func (obj *rfcObj) request() (err error) {
 		return
 	}
 
-	//logger.Debugf("request 2 -len=%d, data= %x", addLen, obj.buffer)
+	fmt.Printf("request 2 -len=%d, data= %x", addLen, obj.buffer[:addLen+2])
 
 	host := string(obj.buffer[:addLen])
 	if len(host) < 8 {
@@ -480,23 +483,24 @@ func NewTunReader() *SimpleTunReader {
 }
 
 func (str *SimpleTunReader) GetTarget(conn net.Conn) string {
+
 	obj := &rfcObj{
 		buffer: make([]byte, MaxAddrLen),
 		conn:   conn,
 	}
 
 	if err := obj.tcpMethod(); err != nil {
-		print(err)
+		fmt.Println(err)
 		return ""
 	}
 
 	if err := obj.request(); err != nil {
-		print(err)
+		fmt.Println(err)
 		return ""
 	}
 
 	if err := obj.replies(conn.LocalAddr().String()); err != nil {
-		print(err)
+		fmt.Println(err)
 		return ""
 	}
 
