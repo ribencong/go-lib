@@ -27,7 +27,7 @@ func (w *Wallet) Running() {
 
 		fmt.Printf("(%s)Got new bill:%s",
 			time.Now().Format(SysTimeFormat), bill.String())
-
+		fmt.Printf("\nPipeBill Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
 		proof, err := w.signBill(bill, w.curService.ID, w.Key.PriKey)
 		if err != nil {
 			w.fatalErr <- err

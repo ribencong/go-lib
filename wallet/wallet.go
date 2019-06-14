@@ -58,7 +58,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("\nUnlock client success:%s", conf.BCAddr)
+	fmt.Printf("\n Unlock client success:%s", conf.BCAddr)
 
 	l, err := service.ParseLicense(conf.License)
 	if err != nil {
@@ -77,11 +77,11 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		sysSaver:   conf.Saver,
 	}
 
+	fmt.Printf("\nNewWallet Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
+
 	if err := w.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
 		return nil, err
 	}
-
-	fmt.Printf("\nCreate aes key success, Wallet config:%s", conf.ToString())
 
 	if err := w.createPayChannel(); err != nil {
 		log.Println("Create payment channel err:", err)
@@ -95,10 +95,8 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 }
 
 func (w *Wallet) createPayChannel() error {
-
-	fmt.Printf("When createPayChannel %s", w.curService.ToString())
+	fmt.Printf("\ncreatePayChannel Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
 	addr := w.curService.TONetAddr()
-	fmt.Printf("After createPayChannel %s", w.curService.ToString())
 	conn, err := w.getOuterConn(addr)
 	if err != nil {
 		return err

@@ -114,8 +114,7 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 }
 
 func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
-	fmt.Printf("Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
-
+	fmt.Printf("\nconnectSockServer Wallet socks ID:%s, IP:%s ", w.curService.ID, w.curService.IP)
 	port := w.curService.ID.ToServerPort()
 	addr := network.JoinHostPort(w.curService.IP, port)
 
