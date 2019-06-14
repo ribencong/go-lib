@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-lib/wallet"
 	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
@@ -19,14 +20,45 @@ import (
 	"strings"
 )
 
-var conf = &wallet.WConfig{
-	BCAddr:     "YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ",
-	Cipher:     "GffT4JanGFefAj4isFLYbodKmxzkJt9HYTQTKquueV8mypm3oSicBZ37paYPnDscQ7XoPa4Qgse6q4yv5D2bLPureawFWhicvZC5WqmFp9CGE",
-	SettingUrl: "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent",
-	License:    `{"sig":"vQlEcc5XKX7B2Qxtwln4B6oijiUEUnI1DlI30hQEhELW1IUpVFvr2kTDunOrD2tWn39WagM3gk4trBx+jq5kAA==","start":"2019-04-25 09:09:54","end":"2019-05-05 09:09:54","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}`,
+var proxyConf = &pipeProxy.ProxyConfig{
+	WConfig: &wallet.WConfig{
+		BCAddr:     "YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ",
+		Cipher:     "GffT4JanGFefAj4isFLYbodKmxzkJt9HYTQTKquueV8mypm3oSicBZ37paYPnDscQ7XoPa4Qgse6q4yv5D2bLPureawFWhicvZC5WqmFp9CGE",
+		License:    `{"sig":"diILHCClpQM+oo3c3aDPr0RY1AhmLRqDapT077h9a9toxb1GgbGkpd4uYP2v1HmYPCU+QITR7saydty3P43TBw==","start":"2019-06-14 02:26:22","end":"2019-07-14 02:26:22","user":"YPDsDm5RBqhA14dgRUGMjE4SVq7A3AzZ4MqEFFL3eZkhjZ"}`,
+		SettingUrl: "https://raw.githubusercontent.com/ribencong/ypctorrent/master/ypc_debug.torrent",
+		Saver:      nil,
+	},
+	BootNodes: "YPBzFaBFv8ZjkPQxtozNQe1c9CvrGXYg4tytuWjo9jiaZx@192.168.30.12",
 }
 
 func main() {
+
+	mis := proxyConf.FindBootServers(".")
+	if len(mis) == 0 {
+		fmt.Println("no valid boot strap node")
+		panic("no boot node")
+	}
+
+	proxyConf.ServerId = mis[0]
+
+	fmt.Println(proxyConf.ToString())
+
+	w, err := wallet.NewWallet(proxyConf.WConfig, "12345678")
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+
+	proxy, e := pipeProxy.NewProxy(":51080", w, NewTunReader())
+	if e != nil {
+		fmt.Println(e)
+		panic(e)
+	}
+
+	proxy.Proxying()
+}
+
+func test11() {
 	license := `{"sig":"8BeMM5+orhR4YY+TJbNw1Wg4BhAq8PSMNuFgx8Ne+I4prJPJmViY2O/OQ7i5VelN3aUR3y3ZpoQ7pFd1612GAw==","start":"2019-06-06 06:50:52","end":"2019-06-21 06:50:52","user":"YPAMynSajgK8SVgHAaFocZTT8QF2za1u9xmS5TQpnqoTjX"}`
 	l, e := service.ParseLicense(license)
 	if e != nil {

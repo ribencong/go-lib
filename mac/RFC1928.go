@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -200,6 +201,9 @@ func (obj *rfcObj) request() (err error) {
 		addLen = net.IPv4len
 	case AtypIPv6:
 		addLen = net.IPv6len
+	default:
+		err = fmt.Errorf("unkonw aType:%d", aType)
+		return
 	}
 
 	if _, err = io.ReadFull(obj.conn, obj.buffer[:addLen+2]); err != nil {
@@ -209,6 +213,10 @@ func (obj *rfcObj) request() (err error) {
 	//logger.Debugf("request 2 -len=%d, data= %x", addLen, obj.buffer)
 
 	host := string(obj.buffer[:addLen])
+	if len(host) < 8 {
+		err = fmt.Errorf("invalid host :%s", host)
+		return
+	}
 	port := strconv.Itoa((int(obj.buffer[addLen]) << 8) |
 		int(obj.buffer[addLen+1]))
 
@@ -464,18 +472,18 @@ type rfcObj struct {
 	buffer []byte
 	conn   net.Conn
 }
-
-func NewTunReader() *rfcObj {
-
-	obj := &rfcObj{
-		buffer: make([]byte, MaxAddrLen),
-	}
-	return obj
+type SimpleTunReader struct {
 }
 
-func (obj *rfcObj) GetTarget(conn net.Conn) string {
+func NewTunReader() *SimpleTunReader {
+	return &SimpleTunReader{}
+}
 
-	obj.conn = conn
+func (str *SimpleTunReader) GetTarget(conn net.Conn) string {
+	obj := &rfcObj{
+		buffer: make([]byte, MaxAddrLen),
+		conn:   conn,
+	}
 
 	if err := obj.tcpMethod(); err != nil {
 		print(err)

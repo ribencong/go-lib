@@ -54,8 +54,8 @@ func (p *LeftPipe) PullDataFromServer() {
 	for {
 		n, err := p.consume.ReadCryptData(p.responseBuf)
 
-		fmt.Printf("\n\n Wallet Left pipe Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
-			p.target, p.consume.RemoteAddr().String())
+		//fmt.Printf("\n\n Wallet Left pipe Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
+		//	p.target, p.consume.RemoteAddr().String())
 		if n > 0 {
 			if nw, errW := p.proxyConn.Write(p.responseBuf[:n]); errW != nil {
 				fmt.Printf("\n Wallet Left pipe write data to system proxy err:%d, %v\n", nw, errW)

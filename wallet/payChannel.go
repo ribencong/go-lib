@@ -71,7 +71,7 @@ func (p *FlowCounter) signBill(bill *service.PipeBill, minerId account.ID, priKe
 
 func (p *FlowCounter) Consume(n int) {
 
-	fmt.Printf("\t*******used:unSigned:%d, consume:%d\n", p.unSigned, n)
+	//fmt.Printf("\t*******used:unSigned:%d, consume:%d\n", p.unSigned, n)
 
 	p.Lock()
 	defer p.Unlock()

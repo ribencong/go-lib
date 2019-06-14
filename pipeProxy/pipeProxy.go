@@ -49,7 +49,8 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	defer conn.Close()
 
 	tgtAddr := pp.tunSrc.GetTarget(conn)
-	if len(tgtAddr) == 0 {
+
+	if len(tgtAddr) < 10 {
 		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
 		return
 	}
