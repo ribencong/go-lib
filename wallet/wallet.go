@@ -40,6 +40,10 @@ type FlowCounter struct {
 	unSigned  int64
 }
 
+func (f *FlowCounter) ToString() string {
+	return fmt.Sprintf("close:%t totalUsed:%d unsigned:%d", f.Closed, f.totalUsed, f.unSigned)
+}
+
 type Wallet struct {
 	acc      *account.Account
 	counter  *FlowCounter
@@ -72,7 +76,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	}
 	w := &Wallet{
 		acc:          acc,
-		fatalErr:     make(chan error, 5),
+		fatalErr:     make(chan error),
 		license:      l,
 		minerID:      conf.ServerId.ID.ToString(),
 		sysSaver:     conf.Saver,
@@ -87,7 +91,8 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		log.Println("Create payment channel err:", err)
 		return nil, err
 	}
-	println("\nCreate payment channel success")
+	conf.ServerId.ID = account.ID("1111111111")
+	fmt.Printf("\nCreate payment channel success:%s", w.ToString())
 
 	go w.Running()
 
@@ -124,6 +129,7 @@ func (w *Wallet) createPayChannel() error {
 }
 
 func (w *Wallet) Close() {
+	fmt.Println("Wallet is closing")
 	w.fatalErr <- nil
 	w.counter.Closed = true
 	w.payConn.Close()
@@ -141,4 +147,15 @@ func (w *Wallet) getOuterConn(addr string) (net.Conn, error) {
 	}
 
 	return d.Dial("tcp", addr)
+}
+
+func (w *Wallet) ToString() string {
+	return fmt.Sprintf("\t account:%s\n"+
+		"\t counter:%s\n"+
+		"\t minerID:%s\n"+
+		"\t Address:%s\n",
+		w.acc.Address,
+		w.counter.ToString(),
+		w.minerID,
+		w.minerNetAddr)
 }

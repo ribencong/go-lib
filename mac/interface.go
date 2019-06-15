@@ -102,6 +102,7 @@ func LibCreateProxy(password, locSer string) bool {
 	return true
 }
 
+//TODO:: inner error call back
 //export LibProxyRun
 func LibProxyRun() {
 	if curProxy == nil {

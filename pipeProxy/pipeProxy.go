@@ -30,7 +30,7 @@ func (pp *PipeProxy) Proxying() {
 
 	log.Println("Proxy start working at:", pp.Addr().String())
 	defer pp.Close()
-	defer log.Println("Proxy exit")
+	defer log.Println("Proxy exit......")
 
 	for {
 		conn, err := pp.Accept()
@@ -68,6 +68,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 
 	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
 }
+
 func (pp *PipeProxy) Finish() {
 	pp.TCPListener.Close()
 	pp.wallet.Close()

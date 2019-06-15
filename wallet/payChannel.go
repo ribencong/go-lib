@@ -25,17 +25,18 @@ func (w *Wallet) Running() {
 			return
 		}
 
-		fmt.Printf("(%s)Got new bill:%s",
-			time.Now().Format(SysTimeFormat), bill.String())
+		fmt.Printf("(%s)Got new bill:%s", time.Now().Format(SysTimeFormat), bill.String())
 
-		fmt.Printf("\nPipeBill Wallet socks ID:%s", w.minerID)
+		fmt.Printf("\n---1--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
 		proof, err := w.counter.signBill(bill, account.ID(w.minerID), w.acc.Key.PriKey)
 		if err != nil {
+			fmt.Print(err)
 			w.fatalErr <- err
 			return
 		}
-
+		fmt.Printf("\n---2--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
 		if err := w.payConn.WriteJsonMsg(proof); err != nil {
+			fmt.Print(err)
 			w.fatalErr <- err
 			return
 		}
@@ -60,6 +61,7 @@ func (p *FlowCounter) signBill(bill *service.PipeBill, minerId account.ID, priKe
 	}
 
 	if err := proof.Sign(priKey); err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
 
