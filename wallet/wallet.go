@@ -52,7 +52,7 @@ type Wallet struct {
 	payConn      *service.JsonConn
 	aesKey       account.PipeCryptKey
 	license      *service.License
-	minerID      string
+	minerID      account.ID
 	minerNetAddr string
 }
 
@@ -76,7 +76,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	w := &Wallet{
 		acc:          acc,
 		license:      l,
-		minerID:      conf.ServerId.ID.ToString(),
+		minerID:      conf.ServerId.ID,
 		sysSaver:     conf.Saver,
 		minerNetAddr: conf.ServerId.TONetAddr(),
 	}

@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"fmt"
-	"github.com/ribencong/go-youPipe/account"
 	"github.com/ribencong/go-youPipe/service"
 	"golang.org/x/crypto/ed25519"
 	"time"
@@ -28,7 +27,10 @@ func (w *Wallet) Running() {
 		fmt.Printf("(%s)Got new bill:%s", time.Now().Format(SysTimeFormat), bill.String())
 
 		fmt.Printf("\n---1--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
-		proof, err := w.counter.signBill(bill, account.ID(w.minerID), w.acc.Key.PriKey)
+
+		pubKey := make(ed25519.PublicKey, ed25519.PublicKeySize)
+		copy(pubKey, w.minerID.ToPubKey())
+		proof, err := w.counter.signBill(bill, pubKey, w.acc.Key.PriKey)
 		if err != nil {
 			fmt.Print(err)
 			return
@@ -41,9 +43,9 @@ func (w *Wallet) Running() {
 	}
 }
 
-func (p *FlowCounter) signBill(bill *service.PipeBill, minerId account.ID, priKey ed25519.PrivateKey) (*service.PipeProof, error) {
+func (p *FlowCounter) signBill(bill *service.PipeBill, minerPubKey ed25519.PublicKey, priKey ed25519.PrivateKey) (*service.PipeProof, error) {
 
-	if ok := bill.Verify(minerId); !ok {
+	if ok := bill.Verify(minerPubKey); !ok {
 		return nil, fmt.Errorf("miner's signature failed")
 	}
 
