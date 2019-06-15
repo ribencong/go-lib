@@ -41,16 +41,16 @@ type FlowCounter struct {
 }
 
 type Wallet struct {
-	*account.Account
-	*FlowCounter
+	acc      *account.Account
+	counter  *FlowCounter
 	fatalErr chan error
 	sysSaver func(fd uintptr)
 
-	payConn   *service.JsonConn
-	aesKey    account.PipeCryptKey
-	license   *service.License
-	minerID   string
-	minerAddr string
+	payConn      *service.JsonConn
+	aesKey       account.PipeCryptKey
+	license      *service.License
+	minerID      string
+	minerNetAddr string
 }
 
 func NewWallet(conf *WConfig, password string) (*Wallet, error) {
@@ -71,15 +71,15 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 		return nil, fmt.Errorf("license and account address are not same")
 	}
 	w := &Wallet{
-		Account:   acc,
-		fatalErr:  make(chan error, 5),
-		license:   l,
-		minerID:   conf.ServerId.ID.ToString(),
-		sysSaver:  conf.Saver,
-		minerAddr: conf.ServerId.TONetAddr(),
+		acc:          acc,
+		fatalErr:     make(chan error, 5),
+		license:      l,
+		minerID:      conf.ServerId.ID.ToString(),
+		sysSaver:     conf.Saver,
+		minerNetAddr: conf.ServerId.TONetAddr(),
 	}
 
-	if err := w.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
+	if err := w.acc.Key.GenerateAesKey(&w.aesKey, conf.ServerId.ID.ToPubKey()); err != nil {
 		return nil, err
 	}
 
@@ -95,9 +95,8 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 }
 
 func (w *Wallet) createPayChannel() error {
-	fmt.Printf("\ncreatePayChannel Wallet socks ID addr:%s ", w.minerAddr)
-
-	conn, err := w.getOuterConn(w.minerAddr)
+	fmt.Printf("\ncreatePayChannel Wallet socks ID addr:%s ", w.minerNetAddr)
+	conn, err := w.getOuterConn(w.minerNetAddr)
 	if err != nil {
 		return err
 	}
@@ -109,7 +108,7 @@ func (w *Wallet) createPayChannel() error {
 
 	hs := &service.YPHandShake{
 		CmdType: service.CmdPayChanel,
-		Sig:     w.Sign(data),
+		Sig:     w.acc.Sign(data),
 		Lic:     w.license,
 	}
 
@@ -120,13 +119,13 @@ func (w *Wallet) createPayChannel() error {
 
 	w.payConn = jsonConn
 
-	w.FlowCounter = &FlowCounter{}
+	w.counter = &FlowCounter{}
 	return nil
 }
 
 func (w *Wallet) Close() {
 	w.fatalErr <- nil
-	w.FlowCounter.Closed = true
+	w.counter.Closed = true
 	w.payConn.Close()
 }
 

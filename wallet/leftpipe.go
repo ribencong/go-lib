@@ -103,7 +103,7 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 		return nil
 	}
 
-	pipe := NewPipe(lConn, consumeConn, w.FlowCounter, tgtAddr)
+	pipe := NewPipe(lConn, consumeConn, w.counter, tgtAddr)
 
 	fmt.Printf("\nNew pipe:%s", pipe.String())
 
@@ -114,11 +114,11 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 
 func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
 
-	fmt.Printf("\nconnectSockServer Wallet socks ID addr:%s \n", w.minerAddr)
+	fmt.Printf("\nconnectSockServer Wallet socks ID addr:%s \n", w.minerNetAddr)
 
-	conn, err := w.getOuterConn(w.minerAddr)
+	conn, err := w.getOuterConn(w.minerNetAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", w.minerAddr, err)
+		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", w.minerNetAddr, err)
 	}
 	conn.(*net.TCPConn).SetKeepAlive(true)
 	return &service.JsonConn{conn}, nil
@@ -127,7 +127,7 @@ func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
 func (w *Wallet) pipeHandshake(conn *service.JsonConn, target string) error {
 
 	reqData := &service.PipeReqData{
-		Addr:   w.Address.ToString(),
+		Addr:   w.acc.Address.ToString(),
 		Target: target,
 	}
 
@@ -136,7 +136,7 @@ func (w *Wallet) pipeHandshake(conn *service.JsonConn, target string) error {
 		return fmt.Errorf("marshal hand shake data err:%v", err)
 	}
 
-	sig := w.Sign(data)
+	sig := w.acc.Sign(data)
 
 	hs := &service.YPHandShake{
 		CmdType: service.CmdPipe,

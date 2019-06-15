@@ -15,7 +15,7 @@ func (w *Wallet) Running() {
 
 	defer w.payConn.Close()
 	defer func() {
-		w.FlowCounter.Closed = true
+		w.counter.Closed = true
 	}()
 
 	for {
@@ -28,9 +28,8 @@ func (w *Wallet) Running() {
 		fmt.Printf("(%s)Got new bill:%s",
 			time.Now().Format(SysTimeFormat), bill.String())
 
-		pubKey := account.ID(w.minerID)
-		fmt.Printf("\nPipeBill Wallet socks ID:%s key:%s", w.minerID, pubKey)
-		proof, err := w.signBill(bill, pubKey, w.Key.PriKey)
+		fmt.Printf("\nPipeBill Wallet socks ID:%s", w.minerID)
+		proof, err := w.counter.signBill(bill, account.ID(w.minerID), w.acc.Key.PriKey)
 		if err != nil {
 			w.fatalErr <- err
 			return
