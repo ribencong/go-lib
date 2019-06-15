@@ -21,7 +21,7 @@ func (w *Wallet) Running() {
 	for {
 		bill := &service.PipeBill{}
 		if err := w.payConn.ReadJsonMsg(bill); err != nil {
-			w.fatalErr <- fmt.Errorf("payment channel Closed: %v", err)
+			fmt.Printf("payment channel Closed: %v", err)
 			return
 		}
 
@@ -31,13 +31,11 @@ func (w *Wallet) Running() {
 		proof, err := w.counter.signBill(bill, account.ID(w.minerID), w.acc.Key.PriKey)
 		if err != nil {
 			fmt.Print(err)
-			w.fatalErr <- err
 			return
 		}
 		fmt.Printf("\n---2--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
 		if err := w.payConn.WriteJsonMsg(proof); err != nil {
 			fmt.Print(err)
-			w.fatalErr <- err
 			return
 		}
 	}

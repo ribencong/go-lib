@@ -47,7 +47,6 @@ func (f *FlowCounter) ToString() string {
 type Wallet struct {
 	acc      *account.Account
 	counter  *FlowCounter
-	fatalErr chan error
 	sysSaver func(fd uintptr)
 
 	payConn      *service.JsonConn
@@ -76,7 +75,6 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	}
 	w := &Wallet{
 		acc:          acc,
-		fatalErr:     make(chan error),
 		license:      l,
 		minerID:      conf.ServerId.ID.ToString(),
 		sysSaver:     conf.Saver,
@@ -129,8 +127,11 @@ func (w *Wallet) createPayChannel() error {
 }
 
 func (w *Wallet) Close() {
+	if w.counter.Closed {
+		return
+	}
+
 	fmt.Println("Wallet is closing")
-	w.fatalErr <- nil
 	w.counter.Closed = true
 	w.payConn.Close()
 }
