@@ -28,6 +28,8 @@ func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error 
 		SettingUrl: url,
 		Saver:      pt,
 	}
+	tun2Pipe.VpnInstance = d
+	tun2Pipe.Protector = pt
 
 	proxyConf.BootNodes = boot
 	tun2Pipe.ByPassInst().Load(IPs)
@@ -38,10 +40,6 @@ func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error 
 	}
 
 	proxyConf.ServerId = mis[0]
-
-	tun2Pipe.VpnInstance = d
-	tun2Pipe.Protector = pt
-
 	return nil
 }
 
@@ -79,7 +77,7 @@ func InputPacket(data []byte) error {
 		return fmt.Errorf("tun isn't initilized ")
 	}
 
-	fmt.Printf("[%d][%02x]", len(data), data)
+	//fmt.Printf("[%d][%02x]", len(data), data)
 	_instance.TunSrc.InputPacket(data)
 
 	return nil

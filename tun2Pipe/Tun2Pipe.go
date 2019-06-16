@@ -85,15 +85,11 @@ func (t2s *Tun2Pipe) GetTarget(conn net.Conn) string {
 }
 
 func (t2s *Tun2Pipe) InputPacket(buf []byte) {
-	//buf := VpnInstance.ReadBuff()
-	//if len(buf) == 0 {
-	//	time.Sleep(time.Millisecond * 100)
-	//	continue
-	//}
+
 	var ip4 *layers.IPv4 = nil
 	packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
 
-	VpnInstance.Log(packet.Dump())
+	//VpnInstance.Log(packet.Dump())
 
 	if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
 		ip4 = ip4Layer.(*layers.IPv4)
