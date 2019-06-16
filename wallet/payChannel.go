@@ -35,11 +35,13 @@ func (w *Wallet) Running() {
 			fmt.Print(err)
 			return
 		}
-		fmt.Printf("\n---2--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
+
 		if err := w.payConn.WriteJsonMsg(proof); err != nil {
-			fmt.Print(err)
+			fmt.Printf("\nwrite back bill msg err:%v", err)
 			return
 		}
+
+		w.counter.updateLocalCounter(bill.UsedBandWidth)
 	}
 }
 
@@ -49,8 +51,9 @@ func (p *FlowCounter) updateLocalCounter(usedBand int64) {
 
 	p.unSigned -= usedBand
 	p.totalUsed += usedBand
-	fmt.Printf("\n\n sign  bill unSigned:%d total:%d", p.unSigned, p.totalUsed)
+	fmt.Printf("\nafter update:sign bill unSigned:%d total:%d\n", p.unSigned, p.totalUsed)
 }
+
 func (p *FlowCounter) checkBill(bill *service.PipeBill, minerPubKey ed25519.PublicKey) error {
 
 	pubKey := make(ed25519.PublicKey, ed25519.PublicKeySize)
@@ -62,7 +65,7 @@ func (p *FlowCounter) checkBill(bill *service.PipeBill, minerPubKey ed25519.Publ
 
 	p.RLock()
 	defer p.RUnlock()
-	fmt.Printf("\n\n sign  bill unSigned:%d total:%d", p.unSigned, p.totalUsed)
+	fmt.Printf("\nbefore update:sign  bill unSigned:%d total:%d\n", p.unSigned, p.totalUsed)
 
 	if bill.UsedBandWidth > p.unSigned {
 		return fmt.Errorf("\n\nI don't use so much bandwith user:(%d) unsigned(%d)", bill.UsedBandWidth, p.unSigned)
@@ -77,7 +80,7 @@ func (p *FlowCounter) signBill(bill *service.PipeBill, priKey ed25519.PrivateKey
 	}
 
 	if err := proof.Sign(priKey); err != nil {
-		fmt.Println(err)
+		fmt.Printf("Sign bill err:%v", err)
 		return nil, err
 	}
 

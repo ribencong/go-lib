@@ -41,7 +41,7 @@ func (p *LeftPipe) collectRequest() {
 			}
 		}
 		if err != nil {
-			log.Println(err)
+			log.Printf("\n collet data from client:%v", err)
 			return
 		}
 	}
@@ -64,11 +64,12 @@ func (p *LeftPipe) PullDataFromServer() {
 		}
 
 		if err != nil {
-			log.Println(err)
+			log.Printf("\npull data from server:%v", err)
 			return
 		}
 
 		if p.payCounter.Closed {
+			log.Println("\npayment channel has been closed")
 			return
 		}
 	}

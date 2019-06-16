@@ -13,7 +13,6 @@ type VpnDelegate interface {
 }
 
 var _instance *pipeProxy.PipeProxy = nil
-var _tunInstance *tun2Pipe.Tun2Pipe = nil
 var proxyConf = &pipeProxy.ProxyConfig{}
 
 func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error {
