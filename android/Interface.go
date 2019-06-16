@@ -13,6 +13,7 @@ type VpnDelegate interface {
 }
 
 var _instance *pipeProxy.PipeProxy = nil
+var _tunInstance *tun2Pipe.Tun2Pipe = nil
 var proxyConf = &pipeProxy.ProxyConfig{}
 
 func InitVPN(addr, cipher, license, url, boot, IPs string, d VpnDelegate) error {
@@ -65,10 +66,22 @@ func SetupVpn(password, locAddr string) error {
 	return nil
 }
 
-func Run() {
+func Proxying() {
 	_instance.Proxying()
 }
 
 func StopVpn() {
-	_instance.Close()
+	_instance.Finish()
+}
+
+func InputPacket(data []byte) error {
+
+	if _instance == nil {
+		return fmt.Errorf("tun isn't initilized ")
+	}
+
+	fmt.Printf("[%d][%02x]", len(data), data)
+	_instance.TunSrc.InputPacket(data)
+
+	return nil
 }

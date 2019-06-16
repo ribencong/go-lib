@@ -84,7 +84,7 @@ func (t2s *Tun2Pipe) GetTarget(conn net.Conn) string {
 	return addr.String()
 }
 
-func (t2s *Tun2Pipe) ReadPacketData(buf []byte) {
+func (t2s *Tun2Pipe) InputPacket(buf []byte) {
 	//buf := VpnInstance.ReadBuff()
 	//if len(buf) == 0 {
 	//	time.Sleep(time.Millisecond * 100)
@@ -119,7 +119,7 @@ func (t2s *Tun2Pipe) ReadPacketData(buf []byte) {
 	VpnInstance.Log(fmt.Sprintf("Unsupported transport layer :%s", ip4.Protocol.String()))
 }
 
-func (t2s *Tun2Pipe) Close() {
+func (t2s *Tun2Pipe) Finish() {
 }
 
 func (t2s *Tun2Pipe) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {

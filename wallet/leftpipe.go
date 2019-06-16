@@ -52,6 +52,7 @@ func (p *LeftPipe) PullDataFromServer() {
 	defer fmt.Println("consume conn failed......")
 	for {
 		n, err := p.consume.ReadCryptData(p.responseBuf)
+		p.payCounter.Consume(n)
 
 		//fmt.Printf("\n\n Wallet Left pipe Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
 		//	p.target, p.consume.RemoteAddr().String())
@@ -70,8 +71,6 @@ func (p *LeftPipe) PullDataFromServer() {
 		if p.payCounter.Closed {
 			return
 		}
-
-		p.payCounter.Consume(n)
 	}
 }
 

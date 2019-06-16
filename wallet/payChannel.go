@@ -24,13 +24,13 @@ func (w *Wallet) Running() {
 			return
 		}
 
-		fmt.Printf("(%s)Got new bill:%s", time.Now().Format(SysTimeFormat), bill.String())
+		fmt.Printf("(%s)Got new bill:%s from:%s", time.Now().Format(SysTimeFormat), bill.String(), w.minerID)
 
-		fmt.Printf("\n---1--->=:PipeBill Wallet socks ID:%s wallet:%s", w.minerID, w.ToString())
-
-		pubKey := make(ed25519.PublicKey, ed25519.PublicKeySize)
-		copy(pubKey, w.minerID.ToPubKey())
-		proof, err := w.counter.signBill(bill, pubKey, w.acc.Key.PriKey)
+		if err := w.counter.checkBill(bill, w.minerID); err != nil {
+			fmt.Println(err)
+			return
+		}
+		proof, err := w.counter.signBill(bill, w.acc.Key.PriKey)
 		if err != nil {
 			fmt.Print(err)
 			return
@@ -43,18 +43,34 @@ func (w *Wallet) Running() {
 	}
 }
 
-func (p *FlowCounter) signBill(bill *service.PipeBill, minerPubKey ed25519.PublicKey, priKey ed25519.PrivateKey) (*service.PipeProof, error) {
-
-	if ok := bill.Verify(minerPubKey); !ok {
-		return nil, fmt.Errorf("miner's signature failed")
-	}
-
+func (p *FlowCounter) updateLocalCounter(usedBand int64) {
 	p.Lock()
 	defer p.Unlock()
 
-	if bill.UsedBandWidth > p.unSigned {
-		return nil, fmt.Errorf("\n\nI don't use so much bandwith user:(%d) unsigned(%d)", bill.UsedBandWidth, p.unSigned)
+	p.unSigned -= usedBand
+	p.totalUsed += usedBand
+	fmt.Printf("\n\n sign  bill unSigned:%d total:%d", p.unSigned, p.totalUsed)
+}
+func (p *FlowCounter) checkBill(bill *service.PipeBill, minerPubKey ed25519.PublicKey) error {
+
+	pubKey := make(ed25519.PublicKey, ed25519.PublicKeySize)
+	copy(pubKey, minerPubKey)
+
+	if ok := bill.Verify(minerPubKey); !ok {
+		return fmt.Errorf("miner's signature failed")
 	}
+
+	p.RLock()
+	defer p.RUnlock()
+	fmt.Printf("\n\n sign  bill unSigned:%d total:%d", p.unSigned, p.totalUsed)
+
+	if bill.UsedBandWidth > p.unSigned {
+		return fmt.Errorf("\n\nI don't use so much bandwith user:(%d) unsigned(%d)", bill.UsedBandWidth, p.unSigned)
+	}
+	return nil
+}
+
+func (p *FlowCounter) signBill(bill *service.PipeBill, priKey ed25519.PrivateKey) (*service.PipeProof, error) {
 
 	proof := &service.PipeProof{
 		PipeBill: bill,
@@ -64,10 +80,6 @@ func (p *FlowCounter) signBill(bill *service.PipeBill, minerPubKey ed25519.Publi
 		fmt.Println(err)
 		return nil, err
 	}
-
-	fmt.Printf("\n\n sign  bill unSigned:%d total:%d", p.unSigned, p.totalUsed)
-	p.unSigned -= bill.UsedBandWidth
-	p.totalUsed += bill.UsedBandWidth
 
 	return proof, nil
 }

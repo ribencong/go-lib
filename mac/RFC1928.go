@@ -506,3 +506,10 @@ func (str *SimpleTunReader) GetTarget(conn net.Conn) string {
 
 	return obj.Target
 }
+
+func (str *SimpleTunReader) Finish() {
+	//Stub
+}
+func (str *SimpleTunReader) InputPacket(data []byte) {
+	//Stub
+}

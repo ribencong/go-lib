@@ -10,7 +10,7 @@ import (
 type PipeProxy struct {
 	*net.TCPListener
 	wallet *wallet.Wallet
-	tunSrc Tun2Pipe
+	TunSrc Tun2Pipe
 }
 
 func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
@@ -21,7 +21,7 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 	ap := &PipeProxy{
 		TCPListener: l.(*net.TCPListener),
 		wallet:      w,
-		tunSrc:      t,
+		TunSrc:      t,
 	}
 	return ap, nil
 }
@@ -48,7 +48,7 @@ func (pp *PipeProxy) Proxying() {
 func (pp *PipeProxy) consume(conn net.Conn) {
 	defer conn.Close()
 
-	tgtAddr := pp.tunSrc.GetTarget(conn)
+	tgtAddr := pp.TunSrc.GetTarget(conn)
 
 	if len(tgtAddr) < 10 {
 		fmt.Println("\nNo such connection's target address:->", conn.RemoteAddr().String())
@@ -57,7 +57,6 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	fmt.Println("\n Proxying target address:", tgtAddr)
 
 	//TODO::match PAC file in ios or android logic
-
 	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {
 		fmt.Println("Create pipe failed:", tgtAddr)
@@ -69,7 +68,9 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
 }
 
+//TODO::how to finish the proxy?
 func (pp *PipeProxy) Finish() {
 	pp.TCPListener.Close()
-	pp.wallet.Close()
+	pp.wallet.Finish()
+	pp.TunSrc.Finish()
 }
