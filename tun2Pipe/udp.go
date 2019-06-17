@@ -37,7 +37,7 @@ func (s *UdpSession) WaitingIn() {
 			return
 		}
 
-		VpnInstance.Log(fmt.Sprintf("\nFrom(%s) UDP Received:%02x", rAddr.String(), buf[:n]))
+		//VpnInstance.Log(fmt.Sprintf("\nFrom(%s) UDP Received:%02x", rAddr.String(), buf[:n]))
 		packet := gopacket.NewPacket(buf[:n], layers.LayerTypeDNS, gopacket.Default)
 		if dnsLayer := packet.Layer(layers.LayerTypeDNS); dnsLayer != nil {
 			VpnInstance.Log(fmt.Sprintln("---------- DNS answer!-------"))

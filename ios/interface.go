@@ -59,6 +59,7 @@ func VerifyLicense(license string) bool {
 
 func VerifyAccount(cipherTxt, address, password string) bool {
 	if _, err := account.AccFromString(address, cipherTxt, password); err != nil {
+		fmt.Println(err)
 		return false
 	}
 	return true

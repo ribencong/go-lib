@@ -1,16 +1,22 @@
 package androidLib
 
+import "C"
 import (
 	"fmt"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/ribencong/go-lib/pipeProxy"
 	"github.com/ribencong/go-lib/tun2Pipe"
 	"github.com/ribencong/go-lib/wallet"
+	"github.com/ribencong/go-youPipe/account"
+	"github.com/ribencong/go-youPipe/service"
 )
 
 type VpnDelegate interface {
 	tun2Pipe.VpnDelegate
 	GetBootPath() string
 }
+
+const Separator = "@@@"
 
 var _instance *pipeProxy.PipeProxy = nil
 var proxyConf = &pipeProxy.ProxyConfig{}
@@ -81,4 +87,36 @@ func InputPacket(data []byte) error {
 	_instance.TunSrc.InputPacket(data)
 
 	return nil
+}
+
+func VerifyAccount(addr, cipher, password string) bool {
+	if _, err := account.AccFromString(addr, cipher, password); err != nil {
+		fmt.Println("ValidAccount:", err)
+		return false
+	}
+	return true
+}
+
+func VerifyLicense(license string) bool {
+	if len(license) == 0 {
+		return false
+	}
+
+	if _, err := service.ParseLicense(license); err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return true
+}
+
+func CreateAccount(password string) string {
+
+	key, err := account.GenerateKey(password)
+	if err != nil {
+		return ""
+	}
+	address := key.ToNodeId().ToString()
+	cipherTxt := base58.Encode(key.LockedKey)
+
+	return address + Separator + cipherTxt
 }
