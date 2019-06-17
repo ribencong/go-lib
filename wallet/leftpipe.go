@@ -42,9 +42,7 @@ func (p *LeftPipe) collectRequest() {
 			}
 		}
 		if err != nil {
-			if err.Error() != "use of closed network connection" {
-				fmt.Printf("\n collet data for(%s) from client err:%v", p.target, err)
-			}
+			fmt.Printf("\n collet data for(%s) from client err:%v", p.target, err)
 			return
 		}
 	}
