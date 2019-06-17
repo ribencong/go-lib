@@ -70,7 +70,12 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 
 //TODO::how to finish the proxy?
 func (pp *PipeProxy) Finish() {
+	if pp.TCPListener == nil {
+		return
+	}
+
 	pp.TCPListener.Close()
+	pp.TCPListener = nil
 	pp.wallet.Finish()
 	pp.TunSrc.Finish()
 }
