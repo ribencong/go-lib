@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ribencong/go-youPipe/service"
-	"log"
+	"io"
 	"net"
 	"time"
 )
@@ -31,7 +31,8 @@ func NewPipe(l net.Conn, r *service.PipeConn, pay *FlowCounter, tgt string) *Lef
 
 func (p *LeftPipe) collectRequest() {
 	defer p.expire()
-	defer fmt.Println("collect system proxy conn exit......")
+	defer fmt.Printf("collect system proxy conn for(%s) exit......", p.target)
+
 	for {
 		nr, err := p.proxyConn.Read(p.requestBuf)
 		if nr > 0 {
@@ -41,7 +42,9 @@ func (p *LeftPipe) collectRequest() {
 			}
 		}
 		if err != nil {
-			log.Printf("\n collet data from client:%v", err)
+			if err.Error() != "use of closed network connection" {
+				fmt.Printf("\n collet data for(%s) from client err:%v", p.target, err)
+			}
 			return
 		}
 	}
@@ -49,13 +52,12 @@ func (p *LeftPipe) collectRequest() {
 
 func (p *LeftPipe) PullDataFromServer() {
 	defer p.expire()
-	defer fmt.Println("consume conn failed......")
+	defer fmt.Printf("\n consume conn for(%s) exit......", p.target)
+
 	for {
 		n, err := p.consume.ReadCryptData(p.responseBuf)
 		p.payCounter.Consume(n)
 
-		//fmt.Printf("\n\n Wallet Left pipe Pull data(no:%d, err:%v) for(%s) from(%s)\n", n, err,
-		//	p.target, p.consume.RemoteAddr().String())
 		if n > 0 {
 			if nw, errW := p.proxyConn.Write(p.responseBuf[:n]); errW != nil {
 				fmt.Printf("\n Wallet Left pipe write data to system proxy err:%d, %v\n", nw, errW)
@@ -64,12 +66,14 @@ func (p *LeftPipe) PullDataFromServer() {
 		}
 
 		if err != nil {
-			log.Printf("\npull data from server:%v", err)
+			if err != io.EOF {
+				fmt.Printf("\npull data from server:%v", err)
+			}
 			return
 		}
 
 		if p.payCounter.Closed {
-			log.Println("\npayment channel has been closed")
+			fmt.Println("\npayment channel has been closed")
 			return
 		}
 	}
@@ -81,9 +85,9 @@ func (p *LeftPipe) expire() {
 }
 
 func (p *LeftPipe) String() string {
-	return fmt.Sprintf("%s<->%s",
+	return fmt.Sprintf("%s<->%s for (%s)",
 		p.proxyConn.RemoteAddr().String(),
-		p.consume.RemoteAddr().String())
+		p.consume.RemoteAddr().String(), p.target)
 }
 
 func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
@@ -94,7 +98,7 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 	}
 
 	if err := w.pipeHandshake(jsonConn, tgtAddr); err != nil {
-		fmt.Printf("\nForward to server err:%v\n", err)
+		fmt.Printf("\nForward (%s) to server err:%v\n", tgtAddr, err)
 		return nil
 	}
 
@@ -105,7 +109,7 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 
 	pipe := NewPipe(lConn, consumeConn, w.counter, tgtAddr)
 
-	fmt.Printf("\nNew pipe:%s", pipe.String())
+	fmt.Printf("\nNew pipe:%s ", pipe.String())
 
 	go pipe.collectRequest()
 
@@ -114,14 +118,12 @@ func (w *Wallet) SetupPipe(lConn net.Conn, tgtAddr string) *LeftPipe {
 
 func (w *Wallet) connectSockServer() (*service.JsonConn, error) {
 
-	fmt.Printf("\nconnectSockServer Wallet socks ID addr:%s \n", w.minerNetAddr)
-
 	conn, err := w.getOuterConn(w.minerNetAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to (%s) access point server (%s):->", w.minerNetAddr, err)
 	}
 	conn.(*net.TCPConn).SetKeepAlive(true)
-	return &service.JsonConn{conn}, nil
+	return &service.JsonConn{Conn: conn}, nil
 }
 
 func (w *Wallet) pipeHandshake(conn *service.JsonConn, target string) error {

@@ -39,6 +39,7 @@ type FlowCounter struct {
 	Closed    bool
 	totalUsed int64
 	unSigned  int64
+	token     int64
 }
 
 func (p *FlowCounter) ToString() string {
@@ -124,7 +125,9 @@ func (w *Wallet) createPayChannel() error {
 
 	w.payConn = jsonConn
 
-	w.counter = &FlowCounter{}
+	w.counter = &FlowCounter{
+		token: service.BandWidthPerToPay,
+	}
 	return nil
 }
 

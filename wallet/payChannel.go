@@ -41,17 +41,26 @@ func (w *Wallet) Running() {
 			return
 		}
 
-		w.counter.updateLocalCounter(bill.UsedBandWidth)
+		if err := w.counter.updateLocalCounter(bill.UsedBandWidth); err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 	}
 }
 
-func (p *FlowCounter) updateLocalCounter(usedBand int64) {
+func (p *FlowCounter) updateLocalCounter(usedBand int64) error {
 	p.Lock()
 	defer p.Unlock()
 
 	p.unSigned -= usedBand
 	p.totalUsed += usedBand
 	fmt.Printf("\nafter update:sign bill unSigned:%d total:%d\n", p.unSigned, p.totalUsed)
+
+	if p.token+p.unSigned < 0 {
+		return fmt.Errorf("\n charge bill out of control (%d)\n", p.unSigned)
+	}
+
+	return nil
 }
 
 func (p *FlowCounter) checkBill(bill *service.PipeBill, minerPubKey ed25519.PublicKey) error {
@@ -68,7 +77,7 @@ func (p *FlowCounter) checkBill(bill *service.PipeBill, minerPubKey ed25519.Publ
 	fmt.Printf("\nbefore update:sign  bill unSigned:%d total:%d\n", p.unSigned, p.totalUsed)
 
 	if bill.UsedBandWidth > p.unSigned {
-		return fmt.Errorf("\n\nI don't use so much bandwith user:(%d) unsigned(%d)", bill.UsedBandWidth, p.unSigned)
+		fmt.Printf("\nI don't use so much bandwith user:(%d) unsigned(%d)\n", bill.UsedBandWidth, p.unSigned)
 	}
 	return nil
 }
