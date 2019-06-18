@@ -75,6 +75,9 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	if l.UserAddr != acc.Address.ToString() {
 		return nil, fmt.Errorf("license and account address are not same")
 	}
+
+	fmt.Printf("\n Selected miner id:%s", conf.ServerId.ToString())
+
 	w := &Wallet{
 		acc:          acc,
 		license:      l,
@@ -162,6 +165,6 @@ func (w *Wallet) ToString() string {
 		"\t Address:%s\n",
 		w.acc.Address,
 		w.counter.ToString(),
-		w.minerID,
+		string(w.minerID),
 		w.minerNetAddr)
 }
