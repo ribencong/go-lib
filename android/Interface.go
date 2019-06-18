@@ -70,11 +70,18 @@ func SetupVpn(password, locAddr string) error {
 }
 
 func Proxying() {
+	if _instance == nil {
+		return
+	}
+
 	_instance.Proxying()
 }
 
 func StopVpn() {
-	_instance.Finish()
+	if _instance != nil {
+		_instance.Finish()
+		_instance = nil
+	}
 }
 
 func InputPacket(data []byte) error {

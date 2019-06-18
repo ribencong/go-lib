@@ -16,7 +16,7 @@ const (
 	SysDialTimeOut    = time.Second * 2
 	UDPSessionTimeOut = time.Second * 80
 	MTU               = math.MaxInt16
-	InnerPivotPort    = 51414
+	InnerPivotPort    = 51414 //TODO:: this port should be refactored
 )
 
 type Tun2Pipe struct {
@@ -116,6 +116,7 @@ func (t2s *Tun2Pipe) InputPacket(buf []byte) {
 }
 
 func (t2s *Tun2Pipe) Finish() {
+	t2s.innerTcpPivot.Close()
 }
 
 func (t2s *Tun2Pipe) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {
