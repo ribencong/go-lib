@@ -47,10 +47,11 @@ func (p *FlowCounter) ToString() string {
 }
 
 type Wallet struct {
-	acc      *account.Account
-	counter  *FlowCounter
-	sysSaver func(fd uintptr)
+	Done chan error
 
+	acc          *account.Account
+	counter      *FlowCounter
+	sysSaver     func(fd uintptr)
 	payConn      *service.JsonConn
 	aesKey       account.PipeCryptKey
 	license      *service.License
@@ -79,6 +80,7 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	fmt.Printf("\n Selected miner id:%s", conf.ServerId.ToString())
 
 	w := &Wallet{
+		Done:         make(chan error),
 		acc:          acc,
 		license:      l,
 		minerID:      make(ed25519.PublicKey, ed25519.PublicKeySize),
@@ -135,11 +137,14 @@ func (w *Wallet) createPayChannel() error {
 }
 
 func (w *Wallet) Finish() {
+	w.counter.Lock()
+	defer w.counter.Unlock()
+
 	if w.counter.Closed {
 		return
 	}
 
-	fmt.Println("Wallet is closing")
+	w.Done <- fmt.Errorf("wallet is closing")
 	w.counter.Closed = true
 	w.payConn.Close()
 }

@@ -20,6 +20,7 @@ const (
 )
 
 type Tun2Pipe struct {
+	Done chan error
 	sync.RWMutex
 	innerTcpPivot *net.TCPListener
 	SessionCache  map[int]*Session
@@ -53,6 +54,7 @@ func New(proxyAddr string) (*Tun2Pipe, error) {
 	intPort, _ := strconv.Atoi(port)
 
 	tsc := &Tun2Pipe{
+		Done:          make(chan error),
 		innerTcpPivot: l,
 		SessionCache:  make(map[int]*Session),
 		udpProxy:      NewUdpProxy(),
@@ -116,7 +118,7 @@ func (t2s *Tun2Pipe) InputPacket(buf []byte) {
 }
 
 func (t2s *Tun2Pipe) Finish() {
-	t2s.innerTcpPivot.Close()
+	t2s.Done <- fmt.Errorf("clsoed by outer controller")
 }
 
 func (t2s *Tun2Pipe) tun2Proxy(ip4 *layers.IPv4, tcp *layers.TCP) {

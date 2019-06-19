@@ -3,11 +3,11 @@ package pipeProxy
 import (
 	"fmt"
 	"github.com/ribencong/go-lib/wallet"
-	"log"
 	"net"
 )
 
 type PipeProxy struct {
+	done chan error
 	*net.TCPListener
 	wallet *wallet.Wallet
 	TunSrc Tun2Pipe
@@ -19,6 +19,7 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 		return nil, e
 	}
 	ap := &PipeProxy{
+		done:        make(chan error),
 		TCPListener: l.(*net.TCPListener),
 		wallet:      w,
 		TunSrc:      t,
@@ -28,9 +29,21 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 
 func (pp *PipeProxy) Proxying() {
 
-	log.Println("Proxy start working at:", pp.Addr().String())
-	defer pp.Close()
-	defer log.Println("Proxy exit......")
+	go pp.Accepting()
+
+	defer pp.releaseResource()
+
+	select {
+	case err := <-pp.done:
+		fmt.Printf("Proxy finished for pipe proxy reason:%v", err)
+	case err := <-pp.wallet.Done:
+		fmt.Printf("Proxy finished for wallet err:%v", err)
+	}
+}
+
+func (pp *PipeProxy) Accepting() {
+	fmt.Println("Proxy start working at:", pp.Addr().String())
+	defer fmt.Println("Proxy exit......")
 
 	for {
 		conn, err := pp.Accept()
@@ -68,8 +81,12 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
 }
 
-//TODO::how to finish the proxy?
 func (pp *PipeProxy) Finish() {
+	pp.done <- fmt.Errorf("closed by outer controller")
+}
+
+func (pp *PipeProxy) releaseResource() {
+
 	if pp.TCPListener == nil {
 		return
 	}
@@ -77,5 +94,5 @@ func (pp *PipeProxy) Finish() {
 	pp.TCPListener.Close()
 	pp.TCPListener = nil
 	pp.wallet.Finish()
-	pp.TunSrc.Finish()
+	pp.TunSrc.Finish() //TODO:: how to inter action with tun2proxy
 }

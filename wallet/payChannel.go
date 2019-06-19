@@ -12,10 +12,7 @@ const PipeDialTimeOut = time.Second * 2
 
 func (w *Wallet) Running() {
 
-	defer w.payConn.Close()
-	defer func() {
-		w.counter.Closed = true
-	}()
+	defer w.Finish()
 
 	for {
 		bill := &service.PipeBill{}
