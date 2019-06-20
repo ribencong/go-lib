@@ -70,7 +70,7 @@ func (p *LeftPipe) PullDataFromServer() {
 			return
 		}
 
-		if p.payCounter.Closed {
+		if p.payCounter.isClosed() {
 			fmt.Println("\npayment channel has been closed")
 			return
 		}

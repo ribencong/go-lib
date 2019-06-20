@@ -27,7 +27,7 @@ type ProxyConfig struct {
 
 func (c *ProxyConfig) ToString() string {
 	return fmt.Sprintf(">>>>>>>>>>>>>>>>>>>>>>\n"+
-		"wallet:%s\n"+
+		"Wallet:%s\n"+
 		"bootnodes:%s\n"+
 		">>>>>>>>>>>>>>>>>>>>>>\n",
 		c.WConfig.ToString(),

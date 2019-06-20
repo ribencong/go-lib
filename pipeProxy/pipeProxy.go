@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"github.com/ribencong/go-lib/wallet"
 	"net"
+	"strconv"
 )
 
 type PipeProxy struct {
-	done chan error
 	*net.TCPListener
-	wallet *wallet.Wallet
+	Wallet *wallet.Wallet
 	TunSrc Tun2Pipe
 }
 
@@ -19,9 +19,8 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 		return nil, e
 	}
 	ap := &PipeProxy{
-		done:        make(chan error),
 		TCPListener: l.(*net.TCPListener),
-		wallet:      w,
+		Wallet:      w,
 		TunSrc:      t,
 	}
 	return ap, nil
@@ -29,19 +28,22 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 
 func (pp *PipeProxy) Proxying() {
 
-	go pp.Accepting()
+	done := make(chan error)
 
-	defer pp.releaseResource()
+	go pp.Accepting(done)
+	go pp.Wallet.Running(done)
+	go pp.TunSrc.Proxying(done)
 
 	select {
-	case err := <-pp.done:
-		fmt.Printf("Proxy finished for pipe proxy reason:%v", err)
-	case err := <-pp.wallet.Done:
-		fmt.Printf("Proxy finished for wallet err:%v", err)
+	case err := <-done:
+		fmt.Printf("PipeProxy exit for:%s", err.Error())
 	}
+
+	pp.Finish()
 }
 
-func (pp *PipeProxy) Accepting() {
+func (pp *PipeProxy) Accepting(done chan error) {
+
 	fmt.Println("Proxy start working at:", pp.Addr().String())
 	defer fmt.Println("Proxy exit......")
 
@@ -49,12 +51,19 @@ func (pp *PipeProxy) Accepting() {
 		conn, err := pp.Accept()
 		if err != nil {
 			fmt.Printf("\nFinish to proxy system request :%s", err)
+			done <- err
 			return
 		}
 
-		fmt.Println("\nNew proxy request:", conn.RemoteAddr().String())
 		conn.(*net.TCPConn).SetKeepAlive(true)
+
 		go pp.consume(conn)
+
+		select {
+		case err := <-done:
+			fmt.Printf("\nProxy closed by out controller:%s", err.Error())
+		default:
+		}
 	}
 }
 
@@ -70,7 +79,7 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 	fmt.Println("\n Proxying target address:", tgtAddr)
 
 	//TODO::match PAC file in ios or android logic
-	pipe := pp.wallet.SetupPipe(conn, tgtAddr)
+	pipe := pp.Wallet.SetupPipe(conn, tgtAddr)
 	if nil == pipe {
 		fmt.Println("Create pipe failed:", tgtAddr)
 		return
@@ -78,21 +87,29 @@ func (pp *PipeProxy) consume(conn net.Conn) {
 
 	pipe.PullDataFromServer()
 
-	fmt.Printf("\n\nPipe for(%s) is closing", tgtAddr)
+	rAddr := conn.RemoteAddr().String()
+	_, port, _ := net.SplitHostPort(rAddr)
+	keyPort, _ := strconv.Atoi(port)
+	pp.TunSrc.RemoveFromSession(keyPort)
+
+	//TODO::need to make sure this is ok
+	fmt.Printf("\n\nPipe(%s) for(%s) is closing", rAddr, tgtAddr)
 }
 
 func (pp *PipeProxy) Finish() {
-	pp.done <- fmt.Errorf("closed by outer controller")
-}
 
-func (pp *PipeProxy) releaseResource() {
-
-	if pp.TCPListener == nil {
-		return
+	if pp.TCPListener != nil {
+		pp.TCPListener.Close()
+		pp.TCPListener = nil
 	}
 
-	pp.TCPListener.Close()
-	pp.TCPListener = nil
-	pp.wallet.Finish()
-	pp.TunSrc.Finish() //TODO:: how to inter action with tun2proxy
+	if pp.Wallet != nil {
+		pp.Wallet.Finish()
+		pp.Wallet = nil
+	}
+
+	if pp.TunSrc != nil {
+		pp.TunSrc.Finish()
+		pp.TunSrc = nil
+	}
 }

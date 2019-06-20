@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+//TODO::to make sure this is usable
 type UdpSession struct {
 	sync.RWMutex
 	*net.UDPConn
@@ -73,12 +74,14 @@ func (s *UdpSession) IsExpire() bool {
 
 type UdpProxy struct {
 	sync.RWMutex
+	Done       chan error
 	NatSession map[int]*UdpSession
 }
 
 func NewUdpProxy() *UdpProxy {
 	up := &UdpProxy{
 		NatSession: make(map[int]*UdpSession),
+		Done:       make(chan error),
 	}
 
 	go up.ExpireOldSession()
@@ -183,6 +186,10 @@ func (up *UdpProxy) ExpireOldSession() {
 					up.removeSession(s)
 				}
 			}
+
+		case err := <-up.Done:
+			VpnInstance.Log(fmt.Sprintf("Udp serrsion expire thread exit for %s", err.Error()))
+			return
 		}
 	}
 }

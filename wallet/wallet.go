@@ -8,7 +8,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 	"log"
 	"net"
-	"sync"
 	"syscall"
 )
 
@@ -34,21 +33,7 @@ func (c *WConfig) ToString() string {
 		c.ServerId.ToString())
 }
 
-type FlowCounter struct {
-	sync.RWMutex
-	Closed    bool
-	totalUsed int64
-	unSigned  int64
-	token     int64
-}
-
-func (p *FlowCounter) ToString() string {
-	return fmt.Sprintf("close:%t totalUsed:%d unsigned:%d", p.Closed, p.totalUsed, p.unSigned)
-}
-
 type Wallet struct {
-	Done chan error
-
 	acc          *account.Account
 	counter      *FlowCounter
 	sysSaver     func(fd uintptr)
@@ -80,7 +65,6 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	fmt.Printf("\n Selected miner id:%s", conf.ServerId.ToString())
 
 	w := &Wallet{
-		Done:         make(chan error),
 		acc:          acc,
 		license:      l,
 		minerID:      make(ed25519.PublicKey, ed25519.PublicKeySize),
@@ -99,8 +83,6 @@ func NewWallet(conf *WConfig, password string) (*Wallet, error) {
 	}
 
 	fmt.Printf("\nCreate payment channel success:%s", w.ToString())
-
-	go w.Running()
 
 	return w, nil
 }
@@ -137,16 +119,14 @@ func (w *Wallet) createPayChannel() error {
 }
 
 func (w *Wallet) Finish() {
-	w.counter.Lock()
-	defer w.counter.Unlock()
-
-	if w.counter.Closed {
+	if w.counter.isClosed() {
 		return
 	}
 
-	w.Done <- fmt.Errorf("wallet is closing")
-	w.counter.Closed = true
+	w.counter.finish()
 	w.payConn.Close()
+	w.payConn = nil
+	w.acc = nil
 }
 
 func (w *Wallet) getOuterConn(addr string) (net.Conn, error) {

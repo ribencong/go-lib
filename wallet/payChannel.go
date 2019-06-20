@@ -4,20 +4,21 @@ import (
 	"fmt"
 	"github.com/ribencong/go-youPipe/service"
 	"golang.org/x/crypto/ed25519"
+	"sync"
 	"time"
 )
 
 const SysTimeFormat = "2006-01-02 15:04:05"
 const PipeDialTimeOut = time.Second * 2
 
-func (w *Wallet) Running() {
+func (w *Wallet) Running(done chan error) {
 
-	defer w.Finish()
+	done <- fmt.Errorf("payment channel exit")
 
 	for {
 		bill := &service.PipeBill{}
 		if err := w.payConn.ReadJsonMsg(bill); err != nil {
-			fmt.Printf("payment channel Closed: %v", err)
+			fmt.Printf("payment channel closed: %v", err)
 			return
 		}
 
@@ -43,6 +44,30 @@ func (w *Wallet) Running() {
 			return
 		}
 	}
+}
+
+type FlowCounter struct {
+	sync.RWMutex
+	closed    bool
+	totalUsed int64
+	unSigned  int64
+	token     int64
+}
+
+func (p *FlowCounter) ToString() string {
+	return fmt.Sprintf("close:%t totalUsed:%d unsigned:%d", p.closed, p.totalUsed, p.unSigned)
+}
+
+func (p *FlowCounter) isClosed() bool {
+	p.RLock()
+	defer p.RUnlock()
+	return p.closed
+}
+
+func (p *FlowCounter) finish() {
+	p.Lock()
+	defer p.Unlock()
+	p.closed = true
 }
 
 func (p *FlowCounter) updateLocalCounter(usedBand int64) error {

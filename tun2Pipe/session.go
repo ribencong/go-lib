@@ -10,7 +10,7 @@ import (
 
 type Session struct {
 	byPass     bool
-	Pipe       *ProxyPipe
+	Pipe       *directPipe
 	UPTime     time.Time
 	RemoteIP   net.IP
 	RemotePort int
@@ -39,23 +39,30 @@ func newSession(ip4 *layers.IPv4, tcp *layers.TCP, srvPort int, bp bool) *Sessio
 	return s
 }
 
-type ProxyPipe struct {
+type directPipe struct {
 	Left  *net.TCPConn
 	Right *net.TCPConn
 }
 
-func (pp *ProxyPipe) Right2Left() {
-	if _, err := io.Copy(pp.Left, pp.Right); err != nil {
+func (dp *directPipe) readingIn() {
+	defer dp.Right.Close()
+
+	if _, err := io.Copy(dp.Left, dp.Right); err != nil {
 		VpnInstance.Log(fmt.Sprintln("Tun Proxy pipe right 2 left finished:", err))
+		dp.expire()
 	}
 }
 
-func (pp *ProxyPipe) WriteTunnel(buf []byte) {
-	if _, e := pp.Right.Write(buf); e != nil {
+func (dp *directPipe) writeOut(buf []byte) error {
+	if _, e := dp.Right.Write(buf); e != nil {
 		VpnInstance.Log(fmt.Sprintln("Tun Proxy pipe left 2 right err:", e))
-		pp.Close()
+		dp.expire()
+		return e
 	}
+	return nil
 }
 
-func (pp *ProxyPipe) Close() {
+func (dp *directPipe) expire() {
+	dp.Left.SetDeadline(time.Now())
+	dp.Right.SetDeadline(time.Now())
 }

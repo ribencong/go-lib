@@ -13,6 +13,7 @@ import (
 
 type VpnDelegate interface {
 	tun2Pipe.VpnDelegate
+	OnClosed()
 	GetBootPath() string
 }
 
@@ -73,7 +74,6 @@ func Proxying() {
 	if _instance == nil {
 		return
 	}
-
 	_instance.Proxying()
 }
 

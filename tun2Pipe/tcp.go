@@ -8,50 +8,10 @@ import (
 	"syscall"
 )
 
-func (t2s *Tun2Pipe) Pivoting() {
+func (t2s *Tun2Pipe) simpleForward(conn net.Conn) {
 
-	defer VpnInstance.Log(fmt.Sprintln("TunTcp Proxy Edn>>>>>>", t2s.innerTcpPivot.Addr()))
-
-	VpnInstance.Log(fmt.Sprintln("TunTcp Proxy start......", t2s.innerTcpPivot.Addr()))
-
-	for {
-		conn, err := t2s.innerTcpPivot.Accept()
-		if err != nil {
-			VpnInstance.Log(fmt.Sprintln("Accept:", err))
-			t2s.Done <- err
-			return
-		}
-		//log.Println("Accept:", conn.RemoteAddr(), conn.LocalAddr())
-		go t2s.process(conn)
-
-		select {
-		case err := <-t2s.Done:
-			VpnInstance.Log(fmt.Sprintln("Tun2Proxy pivoting thread exit:", err))
-			t2s.releaseResource()
-			return
-		default:
-			continue
-		}
-	}
-}
-
-func (t2s *Tun2Pipe) releaseResource() {
-	t2s.Lock()
-	defer t2s.Unlock()
-	if t2s.innerTcpPivot == nil {
-		return
-	}
-
-	t2s.innerTcpPivot.Close()
-	t2s.innerTcpPivot = nil
-	//TODO::check other resources
-}
-
-func (t2s *Tun2Pipe) process(conn net.Conn) {
 	leftConn := conn.(*net.TCPConn)
 	leftConn.SetKeepAlive(true)
-
-	defer leftConn.Close()
 
 	port := leftConn.RemoteAddr().(*net.TCPAddr).Port
 	s := t2s.GetSession(port)
@@ -59,6 +19,9 @@ func (t2s *Tun2Pipe) process(conn net.Conn) {
 		VpnInstance.Log(fmt.Sprintln("Can't proxy this one:", leftConn.RemoteAddr()))
 		return
 	}
+
+	defer t2s.RemoveSession(port)
+	defer leftConn.Close()
 
 	VpnInstance.Log(fmt.Sprintln("Tun New conn for tcp session:", s.ToString()))
 
@@ -91,14 +54,16 @@ func (t2s *Tun2Pipe) process(conn net.Conn) {
 			rightConn.SetKeepAlive(true)
 			VpnInstance.Log(fmt.Sprintf("TCP:Tun Pipe dial success: %s->%s:", rightConn.LocalAddr(), s.ToString()))
 
-			s.Pipe = &ProxyPipe{
+			s.Pipe = &directPipe{
 				Left:  leftConn,
 				Right: rightConn,
 			}
-			go s.Pipe.Right2Left()
+			go s.Pipe.readingIn()
 		}
 
-		s.Pipe.WriteTunnel(buff[:n])
+		if err := s.Pipe.writeOut(buff[:n]); err != nil {
+			return
+		}
 	}
 
 }

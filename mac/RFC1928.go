@@ -513,3 +513,10 @@ func (str *SimpleTunReader) Finish() {
 func (str *SimpleTunReader) InputPacket(data []byte) {
 	//Stub
 }
+
+func (str *SimpleTunReader) Proxying(chan error) {
+	//Stub
+}
+func (str *SimpleTunReader) RemoveFromSession(keyPort int) {
+	//Stub
+}
