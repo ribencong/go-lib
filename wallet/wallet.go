@@ -125,8 +125,6 @@ func (w *Wallet) Finish() {
 
 	w.counter.finish()
 	w.payConn.Close()
-	w.payConn = nil
-	w.acc = nil
 }
 
 func (w *Wallet) getOuterConn(addr string) (net.Conn, error) {

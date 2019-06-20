@@ -144,8 +144,6 @@ func (t2s *Tun2Pipe) Finish() {
 
 	if t2s.udpProxy.Done != nil {
 		t2s.udpProxy.Done <- fmt.Errorf("finished by outer controller")
-		close(t2s.udpProxy.Done)
-		t2s.udpProxy.Done = nil
 	}
 }
 

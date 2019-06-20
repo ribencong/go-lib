@@ -13,35 +13,44 @@ const PipeDialTimeOut = time.Second * 2
 
 func (w *Wallet) Running(done chan error) {
 
-	done <- fmt.Errorf("payment channel exit")
-
 	for {
 		bill := &service.PipeBill{}
 		if err := w.payConn.ReadJsonMsg(bill); err != nil {
-			fmt.Printf("payment channel closed: %v", err)
+			fmt.Printf("\nwallet channel closed: %v", err)
+			done <- err
 			return
 		}
 
-		fmt.Printf("(%s)Got new bill:%s from:%s", time.Now().Format(SysTimeFormat), bill.String(), w.minerID)
+		fmt.Printf("(%s)Wallet new bill:%s from:%s", time.Now().Format(SysTimeFormat), bill.String(), w.minerID)
 
 		if err := w.counter.checkBill(bill, w.minerID); err != nil {
 			fmt.Println(err)
+			done <- err
 			return
 		}
 		proof, err := w.counter.signBill(bill, w.acc.Key.PriKey)
 		if err != nil {
 			fmt.Print(err)
+			done <- err
 			return
 		}
 
 		if err := w.payConn.WriteJsonMsg(proof); err != nil {
-			fmt.Printf("\nwrite back bill msg err:%v", err)
+			fmt.Printf("\nwallet write back bill msg err:%v", err)
+			done <- err
 			return
 		}
 
 		if err := w.counter.updateLocalCounter(bill.UsedBandWidth); err != nil {
 			fmt.Println(err.Error())
+			done <- err
 			return
+		}
+
+		select {
+		case err := <-done:
+			fmt.Printf("\nwallet closed by out controller:%s", err.Error())
+		default:
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 type PipeProxy struct {
 	*net.TCPListener
+	Done   chan error
 	Wallet *wallet.Wallet
 	TunSrc Tun2Pipe
 }
@@ -22,20 +23,21 @@ func NewProxy(addr string, w *wallet.Wallet, t Tun2Pipe) (*PipeProxy, error) {
 		TCPListener: l.(*net.TCPListener),
 		Wallet:      w,
 		TunSrc:      t,
+		Done:        make(chan error),
 	}
 	return ap, nil
 }
 
 func (pp *PipeProxy) Proxying() {
 
-	done := make(chan error)
+	go pp.TunSrc.Proxying(pp.Done)
 
-	go pp.Accepting(done)
-	go pp.Wallet.Running(done)
-	go pp.TunSrc.Proxying(done)
+	go pp.Wallet.Running(pp.Done)
+
+	go pp.Accepting(pp.Done)
 
 	select {
-	case err := <-done:
+	case err := <-pp.Done:
 		fmt.Printf("PipeProxy exit for:%s", err.Error())
 	}
 
@@ -105,11 +107,9 @@ func (pp *PipeProxy) Finish() {
 
 	if pp.Wallet != nil {
 		pp.Wallet.Finish()
-		pp.Wallet = nil
 	}
 
 	if pp.TunSrc != nil {
 		pp.TunSrc.Finish()
-		pp.TunSrc = nil
 	}
 }

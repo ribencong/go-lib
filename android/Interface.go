@@ -13,7 +13,6 @@ import (
 
 type VpnDelegate interface {
 	tun2Pipe.VpnDelegate
-	OnClosed()
 	GetBootPath() string
 }
 
@@ -75,11 +74,12 @@ func Proxying() {
 		return
 	}
 	_instance.Proxying()
+	_instance = nil
 }
 
 func StopVpn() {
 	if _instance != nil {
-		_instance.Finish()
+		_instance.Done <- fmt.Errorf("user close this")
 		_instance = nil
 	}
 }
@@ -90,7 +90,6 @@ func InputPacket(data []byte) error {
 		return fmt.Errorf("tun isn't initilized ")
 	}
 
-	//fmt.Printf("[%d][%02x]", len(data), data)
 	_instance.TunSrc.InputPacket(data)
 
 	return nil
